@@ -1,0 +1,9 @@
+# example configuration file for the daemon
+zone: example.com
+record: vpn
+iface: eth0
+interval: 1 # check every minute
+state_file: /tmp/.cf-dynip
+cloudflare_api:
+    key: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    email: user@example.com
