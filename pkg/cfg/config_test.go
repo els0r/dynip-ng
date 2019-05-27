@@ -43,13 +43,6 @@ iface: eth0
         `,
 	},
 	{
-		"record missing",
-		false,
-		`zone: example.ch
-iface: eth0
-        `,
-	},
-	{
 		"faulty YAML",
 		false,
 		`zone: example.ch

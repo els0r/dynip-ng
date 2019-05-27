@@ -2,11 +2,14 @@ package update
 
 import (
 	"fmt"
-	"log"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	"github.com/els0r/dynip-ng/pkg/cfg"
+
+	logger "github.com/els0r/log"
 )
+
+var log, _ = logger.NewFromString("console", logger.WithLevel(logger.DEBUG))
 
 // CloudFlareUpdate communicates with the cloudflare API to change records
 type CloudFlareUpdate struct {
@@ -83,11 +86,11 @@ func (c *CloudFlareUpdate) Update(IP string, cfg *cfg.Config) error {
 				if err != nil {
 					return err
 				} else {
-					log.Printf("Updated A record '%s' with IP address '%s'", recordToUpdate, IP)
+					log.Infof("Updated A record '%s' with IP address '%s'", recordToUpdate, IP)
 					return nil
 				}
 			}
 		}
 	}
-	return fmt.Errorf("record was not found")
+	return fmt.Errorf("record %q was not found", recordToUpdate)
 }

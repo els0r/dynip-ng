@@ -59,8 +59,13 @@ func New() *Config {
 
 // String provides quick info about what this configuration updates
 func (c *Config) String() string {
-	return fmt.Sprintf("Updates: %s.%s; Every: %dm; Iface: %q",
-		c.Record, c.Zone,
+	dnsStr := c.Zone
+	if c.Record != "" {
+		dnsStr = c.Record + "." + dnsStr
+	}
+
+	return fmt.Sprintf("Updates: %s; Every: %dm; Iface: %q",
+		dnsStr,
 		c.Interval,
 		c.Iface)
 }
@@ -72,9 +77,6 @@ type validator interface {
 }
 
 func (c *Config) validate() error {
-	if c.Record == "" {
-		return fmt.Errorf("no record to update provided")
-	}
 	if c.Zone == "" {
 		return fmt.Errorf("no zone to update record in provided")
 	}
