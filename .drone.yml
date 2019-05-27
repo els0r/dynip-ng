@@ -1,5 +1,5 @@
 kind: pipeline
-name: cloudflare-dynip
+name: dynip-ng
 
 clone:
   disable: true
@@ -9,7 +9,7 @@ steps:
 
 workspace:
     base: /go
-    path: src/gitlab.jule.lan/infra/dynip-ng
+    path: src/github.com/els0r/dynip-ng
 
 steps:
     - name: internal_net_clone
