@@ -15,9 +15,9 @@
 package cmd
 
 import (
+	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/listener"
 	"github.com/spf13/cobra"
-	"gitlab.jule.lan/infra/dynip-ng/pkg/cfg"
-	"gitlab.jule.lan/infra/dynip-ng/pkg/listener"
 )
 
 // runCmd represents the run command
