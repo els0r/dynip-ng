@@ -15,8 +15,14 @@
 package cmd
 
 import (
+	"fmt"
+	"os"
+	"os/signal"
+	"syscall"
+
 	"github.com/els0r/dynip-ng/pkg/cfg"
 	"github.com/els0r/dynip-ng/pkg/listener"
+	"github.com/els0r/dynip-ng/pkg/update"
 	"github.com/spf13/cobra"
 )
 
@@ -27,11 +33,42 @@ var runCmd = &cobra.Command{
 	Long: `Listens for changes on interface and updates configured A record in
 Cloudflare`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+
+		// we quit on encountering SIGTERM or SIGINT
+		sigExitChan := make(chan os.Signal, 1)
+		signal.Notify(sigExitChan, syscall.SIGTERM, os.Interrupt)
+
+		// parse config
 		config, err := cfg.ParseFile(cfgPath)
 		if err != nil {
 			return err
 		}
-		return listener.Run(config)
+
+		// create cloudflare updater
+		var cu update.Updater
+		cu, err = update.NewCloudFlareUpdate(config.API.Key, config.API.Email)
+		if err != nil {
+			return err
+		}
+
+		// create listener
+		var l *listener.Listener
+		l, err = listener.New(config, []update.Updater{
+			// line up all different updaters
+			cu,
+		}...)
+		if err != nil {
+			return fmt.Errorf("failed to create listener: %s", err)
+		}
+
+		// and run it
+		stop := l.Run()
+
+		// listen for the exit signal and stop the listener
+		<-sigExitChan
+		stop <- struct{}{}
+
+		return nil
 	},
 }
 

@@ -2,7 +2,7 @@
 
 set -eufo pipefail
 
-BASE=$PWD/absolute
+BASE=./absolute
 
 rm -rf ${BASE}
 

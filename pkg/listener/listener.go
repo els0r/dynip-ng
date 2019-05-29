@@ -6,9 +6,7 @@ import (
 	"io"
 	"net"
 	"os"
-	"os/signal"
 	"reflect"
-	"syscall"
 	"time"
 
 	yaml "gopkg.in/yaml.v2"
@@ -31,8 +29,8 @@ type StoredIPs struct {
 type ipState struct {
 	diskLocation string
 
-	fromDisk  StoredIPs
-	fromIface StoredIPs
+	fromStorage StoredIPs
+	fromIface   StoredIPs
 }
 
 // state loading and writing
@@ -59,111 +57,142 @@ func (s *ipState) loadFromDisk() error {
 }
 
 func (s *ipState) load(src io.Reader) error {
-	return yaml.NewDecoder(src).Decode(&s.fromDisk)
+	return yaml.NewDecoder(src).Decode(&s.fromStorage)
 }
 
-func (s *ipState) update(cfg *cfg.Config) error {
+func (s *ipState) inSync() bool {
+	return reflect.DeepEqual(s.fromIface, s.fromStorage)
+}
+
+func (l *Listener) update() {
+	var (
+		err error
+		ip  net.IP
+	)
+
+	// reset state in case the error is non-nil upon function return
+	defer func(err error) {
+		// reset and return
+		if err != nil {
+			log.Errorf("update failed: %s", err)
+			l.state.reset()
+			return
+		}
+
+		// write state to disk
+		l.state.fromStorage = l.state.fromIface
+		l.state.writeToDisk()
+	}(err)
+
 	// get current ip addresses
-	ip, err := getLocalAddress(cfg.Iface)
+	ip, err = getLocalAddress(l.cfg.Iface)
 	if err != nil {
-		return err
+		return
 	}
 
 	// assign IPs to state
 	if ip.To4() != nil {
-		s.fromIface.IPv4 = ip.String()
+		l.state.fromIface.IPv4 = ip.String()
 	} else {
-		s.fromIface.IPv6 = ip.String()
+		l.state.fromIface.IPv6 = ip.String()
 	}
 
-	// check for equality (currently
-	if !(reflect.DeepEqual(s.fromIface, s.fromDisk)) {
-		log.Info("running cloudflare update")
+	// check update trigger condition
+	if !l.state.inSync() {
+		log.Info("running IP change destination updates")
 
-		var u update.Updater
+		for _, u := range l.updaters {
+			// update the IPs at the destination
+			err = u.Update(l.state.fromIface.IPv4, l.cfg)
 
-		// TODO move into listener constructor
-		u, err = update.NewCloudFlareUpdate(cfg.API.Key, cfg.API.Email)
-		if err != nil {
-			return err
+			// all updates have to be successful
+			if err != nil {
+				return
+			}
 		}
-
-		// update the IPs at the destination
-		err = u.Update(s.fromIface.IPv4, cfg)
-		if err != nil {
-			return err
-		}
-
-		// write state to disk
-		s.fromDisk = s.fromIface
-		s.writeToDisk()
-	} else {
-		log.Debug("IPs are equal. Nothing to do")
+		return
 	}
-	return nil
+	log.Debug("IPs are equal. Nothing to do")
 }
 
 func (s *ipState) reset() {
 	s.fromIface = StoredIPs{}
 }
 
-// Run starts the IP change listener
-func Run(cfg *cfg.Config) error {
-	if cfg == nil {
-		return fmt.Errorf("cannot run with nil config")
-	}
-
-	log.Debugf("Running with config: %s", cfg)
-
-	// setup time interval for periodic checks
-	ticker := time.NewTicker(time.Duration(cfg.Interval) * time.Minute)
-	defer ticker.Stop()
-
-	// we quit on encountering SIGTERM or SIGINT
-	sigExitChan := make(chan os.Signal, 1)
-	signal.Notify(sigExitChan, syscall.SIGTERM, os.Interrupt)
-
-	// create initial state
-	state := &ipState{
+func newState() *ipState {
+	return &ipState{
 		diskLocation: defaultDiskLocation,
-		fromDisk:     StoredIPs{},
+		fromStorage:  StoredIPs{},
 		fromIface:    StoredIPs{},
 	}
-	if cfg.StateFile != "" {
-		state.diskLocation = cfg.StateFile
+}
+
+type Listener struct {
+	state *ipState
+	cfg   *cfg.Config
+
+	// units that will receive an update
+	updaters []update.Updater
+}
+
+// New creates a new listener
+func New(cfg *cfg.Config, upds ...update.Updater) (*Listener, error) {
+	l := new(Listener)
+
+	if cfg == nil {
+		return nil, fmt.Errorf("cannot run with <nil> config")
 	}
-	defer state.writeToDisk()
+	l.cfg = cfg
+
+	// create initial state
+	l.state = newState()
+
+	if cfg.StateFile != "" {
+		l.state.diskLocation = cfg.StateFile
+	}
 
 	// opportunistically attempt to load the state
-	err := state.loadFromDisk()
+	err := l.state.loadFromDisk()
 	if err != nil {
 		log.Debugf("loading state failed: %s", err)
 	}
 
+	// assign updaters
+	l.updaters = upds
+
+	return l, nil
+}
+
+// Run starts the IP change listener
+func (l *Listener) Run() chan struct{} {
+
+	log.Debugf("Running with config: %s", l.cfg)
+
+	// setup time interval for periodic checks
+	ticker := time.NewTicker(time.Duration(l.cfg.Interval) * time.Minute)
+	defer ticker.Stop()
+
+	// on return, write the last state one more time
+	defer l.state.writeToDisk()
+
 	// check and update if necessary
-	err = state.update(cfg)
-	if err != nil {
-		log.Errorf("update failed: %s", err)
-		state.reset()
-	}
+	l.update()
 
 	// go into monitoring mode
-	for {
-		select {
-		case <-ticker.C:
-			// check and update if necessary
-			err = state.update(cfg)
-			if err != nil {
-				log.Errorf("update failed: %s", err)
-
-				// reset state
-				state.reset()
+	stopChan := make(chan struct{})
+	go func(stop chan struct{}) {
+		for {
+			select {
+			case <-ticker.C:
+				// check and update if necessary
+				l.update()
+			case <-stop:
+				log.Info("stopped listening for IP updates")
+				return
 			}
-		case <-sigExitChan:
-			log.Info("Shutting down")
-			return nil
 		}
-	}
+	}(stopChan)
+	return stopChan
 }
 
 func getLocalAddress(iface string) (net.IP, error) {
