@@ -16,7 +16,8 @@ type CloudFlareUpdate struct {
 	api CloudflareAPI
 }
 
-// api allows us to mock the cloudflare api for testing
+// CloudflareAPI allows us to decouple the third-party CloudFlare API implementation.
+// This is useful for mocking the cloudflare api for testing.
 type CloudflareAPI interface {
 	ZoneIDByName(string) (string, error)
 	DNSRecords(string, cloudflare.DNSRecord) ([]cloudflare.DNSRecord, error)
@@ -85,10 +86,9 @@ func (c *CloudFlareUpdate) Update(IP string, cfg *cfg.Config) error {
 				err = c.api.UpdateDNSRecord(zoneID, r.ID, r)
 				if err != nil {
 					return err
-				} else {
-					log.Infof("Updated A record '%s' with IP address '%s'", recordToUpdate, IP)
-					return nil
 				}
+				log.Infof("Updated A record '%s' with IP address '%s'", recordToUpdate, IP)
+				return nil
 			}
 		}
 	}

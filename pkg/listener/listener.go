@@ -65,6 +65,7 @@ func (l *Listener) update() {
 	log.Debug("IPs are equal. Nothing to do")
 }
 
+// Listener listens for IP changes on an interface and updates all its configured destinations
 type Listener struct {
 	state State
 	cfg   *cfg.Config
