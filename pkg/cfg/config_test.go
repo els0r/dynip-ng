@@ -13,33 +13,45 @@ var tests = []struct {
 	{
 		"valid configuration",
 		true,
-		`zone: example.ch
-record: dynip
-interval: 10
-state_file: "/root/.ip-state"
-iface: eth0
-cloudflare_api:
-    key: 123
-    email: test@example.com
+		`state_file: "/root/.ip-state"
+cloudflare:
+    access:
+        key: 123
+        email: test@example.com
+    zone: example.ch
+    record: dynip
+listen:
+    interval: 10
+    iface: eth0
         `,
 	},
 	{
 		"wrong interval value",
 		false,
-		`zone: example.ch
-record: dynip
-interval: -1
-iface: eth0
-cloudflare_api:
-    key: 123
-    email: test@example.com
+		`state_file: "/root/.ip-state"
+cloudflare:
+    access:
+        key: 123
+        email: test@example.com
+    zone: example.ch
+    record: dynip
+listen:
+    interval: -1
+    iface: eth0
         `,
 	},
 	{
 		"zone missing",
 		false,
-		`record: dynip
-iface: eth0
+		`state_file: "/root/.ip-state"
+cloudflare:
+    access:
+        key: 123
+        email: test@example.com
+    record: dynip
+listen:
+    interval: -1
+    iface: eth0
         `,
 	},
 	{
@@ -52,11 +64,14 @@ iface: eth0
 	{
 		"invalid API configuration - key missing",
 		false,
-		`zone: example.ch
-record: dynip
-iface: eth0
-cloudflare_api:
-    email: test@example.com
+		`state_file: "/root/.ip-state"
+cloudflare:
+    access:
+        email: test@example.com
+    record: dynip
+listen:
+    interval: -1
+    iface: eth0
         `,
 	},
 }

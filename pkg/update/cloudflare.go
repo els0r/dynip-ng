@@ -14,6 +14,7 @@ var log, _ = logger.NewFromString("console", logger.WithLevel(logger.DEBUG))
 // CloudFlareUpdate communicates with the cloudflare API to change records
 type CloudFlareUpdate struct {
 	api CloudflareAPI
+	cfg *cfg.CloudflareAPI
 }
 
 // CloudflareAPI allows us to decouple the third-party CloudFlare API implementation.
@@ -35,12 +36,15 @@ func WithCFAPI(api CloudflareAPI) CFOption {
 }
 
 // NewCloudFlareUpdate return a new cloudflare updater
-func NewCloudFlareUpdate(key, email string, opts ...CFOption) (*CloudFlareUpdate, error) {
+func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareUpdate, error) {
 	c := new(CloudFlareUpdate)
+
+	// store zone and record update config
+	c.cfg = cfg
 
 	// Construct a new API object
 	var err error
-	c.api, err = cloudflare.New(key, email)
+	c.api, err = cloudflare.New(cfg.Access.Key, cfg.Access.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -54,10 +58,10 @@ func NewCloudFlareUpdate(key, email string, opts ...CFOption) (*CloudFlareUpdate
 }
 
 // Update changes the record from the config in Cloudflare to `ip`
-func (c *CloudFlareUpdate) Update(IP string, cfg *cfg.Config) error {
+func (c *CloudFlareUpdate) Update(IP string) error {
 
 	// Fetch the zone ID
-	zoneID, err := c.api.ZoneIDByName(cfg.Zone)
+	zoneID, err := c.api.ZoneIDByName(c.cfg.Zone)
 	if err != nil {
 		return err
 	}
@@ -68,9 +72,9 @@ func (c *CloudFlareUpdate) Update(IP string, cfg *cfg.Config) error {
 		return err
 	}
 
-	recordToUpdate := cfg.Zone
-	if cfg.Record != "" {
-		recordToUpdate = cfg.Record + "." + cfg.Zone
+	recordToUpdate := c.cfg.Zone
+	if c.cfg.Record != "" {
+		recordToUpdate = c.cfg.Record + "." + c.cfg.Zone
 	}
 
 	for _, r := range recs {

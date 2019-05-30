@@ -48,7 +48,7 @@ Cloudflare`,
 
 		// create cloudflare updater
 		var cu update.Updater
-		cu, err = update.NewCloudFlareUpdate(config.API.Key, config.API.Email)
+		cu, err = update.NewCloudFlareUpdate(config.Cloudflare)
 		if err != nil {
 			return err
 		}
@@ -66,7 +66,7 @@ Cloudflare`,
 
 		// create listener
 		var l *listener.Listener
-		l, err = listener.New(config, state, []update.Updater{
+		l, err = listener.New(config.Listen, state, []update.Updater{
 			// line up all different updaters
 			cu,
 		}...)

@@ -10,16 +10,16 @@ import (
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) Update(ip string, cfg *cfg.Config) error { return nil }
+func (m *mockUpdater) Update(ip string) error { return nil }
 
 func TestListener(t *testing.T) {
 	var tests = []struct {
 		name   string
-		config *cfg.Config
+		config *cfg.ListenConfig
 	}{
 		{
 			"test run and stop (long)",
-			&cfg.Config{
+			&cfg.ListenConfig{
 				Interval: 1,
 			},
 		},

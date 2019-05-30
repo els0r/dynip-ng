@@ -1,9 +1,12 @@
-iface: eth0
-zone: example.com
-record: dyn-ip
-interval: 5
 state_file: /tmp/.dyn-ip
+listen:
+    iface: eth0
+    interval: 5
+
 cloudflare_api:
-    key: 13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de
-    email: user@example.com
+    access:
+        key: 13550350a8681c84c861aac2e5b440161c2b33a3e4f302ac680ca5b686de48de
+        email: user@example.com
+    zone: example.com
+    record: dyn-ip
 

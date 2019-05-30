@@ -49,7 +49,7 @@ func (l *Listener) update() {
 
 		for _, u := range l.updaters {
 			// update the IPs at the destination
-			err = u.Update(ips.IPv4, l.cfg)
+			err = u.Update(ips.IPv4)
 
 			// all updates have to be successful
 			if err != nil {
@@ -68,14 +68,14 @@ func (l *Listener) update() {
 // Listener listens for IP changes on an interface and updates all its configured destinations
 type Listener struct {
 	state State
-	cfg   *cfg.Config
+	cfg   *cfg.ListenConfig
 
 	// units that will receive an update
 	updaters []update.Updater
 }
 
 // New creates a new listener
-func New(cfg *cfg.Config, state State, upds ...update.Updater) (*Listener, error) {
+func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener, error) {
 	l := new(Listener)
 
 	if cfg == nil {

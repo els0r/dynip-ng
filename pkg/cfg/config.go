@@ -11,40 +11,51 @@ import (
 
 // Config holds the dyn-ip configuration
 type Config struct {
-	// Record which should be changed
-	Record string
-
-	// Zone holding the record
-	Zone string
-
-	// External interface to monitor changes on
-	Iface string
-
-	// Interval stores the time between periodic checks
-	Interval int
+	// Listen configures where to listen for IP updates
+	Listen *ListenConfig
 
 	// StateFile stores the location of the state file
 	StateFile string `yaml:"state_file"`
 
 	// API configures the accessto cloudflare
-	API *APIConfig `yaml:"cloudflare_api"`
+	Cloudflare *CloudflareAPI
 }
 
-// APIConfig configures the accessto cloudflare
-type APIConfig struct {
-	// Key is the API key for Cloudflare
-	Key string
+// ListenConfig configures the listener
+type ListenConfig struct {
+	// External interface to monitor changes on
+	Iface string
 
-	// Email is the email associated with the API key
-	Email string
+	// Interval stores the time between periodic checks
+	Interval int
 }
 
-func (a *APIConfig) validate() error {
-	if a.Key == "" {
-		return fmt.Errorf("cloudflare_api: no API key provided")
+// CloudflareAPI configures the accessto cloudflare
+type CloudflareAPI struct {
+	Access struct {
+		// Key is the API key for Cloudflare
+		Key string
+
+		// Email is the email associated with the API key
+		Email string
 	}
-	if a.Email == "" {
-		return fmt.Errorf("cloudflare_api: no API email provided")
+
+	// Record which should be changed
+	Record string
+
+	// Zone holding the record
+	Zone string
+}
+
+func (c *CloudflareAPI) validate() error {
+	if c.Access.Key == "" {
+		return fmt.Errorf("cloudflare: no API key provided")
+	}
+	if c.Access.Email == "" {
+		return fmt.Errorf("cloudflare: no API email provided")
+	}
+	if c.Zone == "" {
+		return fmt.Errorf("cloudflare: no zone to update record in provided")
 	}
 	return nil
 }
@@ -52,22 +63,18 @@ func (a *APIConfig) validate() error {
 // New creates a default configuration
 func New() *Config {
 	return &Config{
-		Iface:    "eth0", // assumes that eth0 is the default interface
-		Interval: 5,      // standard check is every 5 minutes
+		Listen: &ListenConfig{
+			Iface:    "eth0", // assumes that eth0 is the default interface
+			Interval: 5,      // standard check is every 5 minutes
+		},
 	}
 }
 
 // String provides quick info about what this configuration updates
 func (c *Config) String() string {
-	dnsStr := c.Zone
-	if c.Record != "" {
-		dnsStr = c.Record + "." + dnsStr
-	}
-
-	return fmt.Sprintf("Updates: %s; Every: %dm; Iface: %q",
-		dnsStr,
-		c.Interval,
-		c.Iface)
+	return fmt.Sprintf("Updates every: %dm; Iface: %q",
+		c.Listen.Interval,
+		c.Listen.Iface)
 }
 
 // the validator interface is a contract to show if a concrete type is
@@ -76,18 +83,22 @@ type validator interface {
 	validate() error
 }
 
+func (l *ListenConfig) validate() error {
+	if l.Iface == "" {
+		return fmt.Errorf("listener: no interface provided on which daemon monitors changes")
+	}
+	if l.Interval <= 0 {
+		return fmt.Errorf("listener: checking period must be greater zero (minutes)")
+	}
+	return nil
+}
+
 func (c *Config) validate() error {
-	if c.Zone == "" {
-		return fmt.Errorf("no zone to update record in provided")
+	if c.Listen == nil {
+		return fmt.Errorf("no listener configuration provided")
 	}
-	if c.Iface == "" {
-		return fmt.Errorf("no interface provided on which daemon monitors changes")
-	}
-	if c.API == nil {
+	if c.Cloudflare == nil {
 		return fmt.Errorf("no cloudflare configuration provided")
-	}
-	if c.Interval <= 0 {
-		return fmt.Errorf("checking period must be greater zero (seconds)")
 	}
 	return nil
 }
@@ -97,7 +108,8 @@ func (c *Config) Validate() error {
 	// run all config subsection validators. Order matters here
 	for _, section := range []validator{
 		c,
-		c.API,
+		c.Listen,
+		c.Cloudflare,
 	} {
 		err := section.validate()
 		if err != nil {
