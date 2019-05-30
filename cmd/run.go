@@ -26,6 +26,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const defaultStateDiskLocation = "/var/run/.cf-dyn-ip"
+
 // runCmd represents the run command
 var runCmd = &cobra.Command{
 	Use:   "run",
@@ -51,9 +53,20 @@ Cloudflare`,
 			return err
 		}
 
+		// check if the state file is set, otherwise take default path
+		path := defaultStateDiskLocation
+		if config.StateFile != "" {
+			path = config.StateFile
+		}
+
+		state, err := listener.NewFileState(path)
+		if err != nil {
+			return fmt.Errorf("failed to create state: %s", err)
+		}
+
 		// create listener
 		var l *listener.Listener
-		l, err = listener.New(config, []update.Updater{
+		l, err = listener.New(config, state, []update.Updater{
 			// line up all different updaters
 			cu,
 		}...)

@@ -56,6 +56,20 @@ steps:
           event:
               - push
 
+    - name: coverage
+      image: golang:1.12.5-stretch
+      pull: always
+      commands:
+          - bash test_coverage.sh
+          - bash <(curl -s https://codecov.io/bash)
+      when:
+          branch:
+              - master
+              - develop
+              - feature/*
+          event:
+              - push
+
     - name: vet
       image: golang:1.12.5-stretch
       pull: always

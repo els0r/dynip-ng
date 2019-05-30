@@ -3,13 +3,8 @@ package listener
 
 import (
 	"fmt"
-	"io"
 	"net"
-	"os"
-	"reflect"
 	"time"
-
-	yaml "gopkg.in/yaml.v2"
 
 	"github.com/els0r/dynip-ng/pkg/cfg"
 	"github.com/els0r/dynip-ng/pkg/update"
@@ -17,52 +12,6 @@ import (
 )
 
 var log, _ = logger.NewFromString("console", logger.WithLevel(logger.DEBUG))
-
-const defaultDiskLocation = "/var/run/.cf-dyn-ip"
-
-// StoredIPs stores the observed IP addresses on disk
-type StoredIPs struct {
-	IPv4 string
-	IPv6 string
-}
-
-type ipState struct {
-	diskLocation string
-
-	fromStorage StoredIPs
-	fromIface   StoredIPs
-}
-
-// state loading and writing
-func (s *ipState) write(dst io.Writer) error {
-	return yaml.NewEncoder(dst).Encode(&s.fromIface)
-}
-
-func (s *ipState) writeToDisk() error {
-	fd, err := os.Create(s.diskLocation)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	return s.write(fd)
-}
-
-func (s *ipState) loadFromDisk() error {
-	fd, err := os.Open(s.diskLocation)
-	if err != nil {
-		return err
-	}
-	defer fd.Close()
-	return s.load(fd)
-}
-
-func (s *ipState) load(src io.Reader) error {
-	return yaml.NewDecoder(src).Decode(&s.fromStorage)
-}
-
-func (s *ipState) inSync() bool {
-	return reflect.DeepEqual(s.fromIface, s.fromStorage)
-}
 
 func (l *Listener) update() {
 	var (
@@ -75,13 +24,9 @@ func (l *Listener) update() {
 		// reset and return
 		if err != nil {
 			log.Errorf("update failed: %s", err)
-			l.state.reset()
+			l.state.Reset()
 			return
 		}
-
-		// write state to disk
-		l.state.fromStorage = l.state.fromIface
-		l.state.writeToDisk()
 	}(err)
 
 	// get current ip addresses
@@ -91,44 +36,37 @@ func (l *Listener) update() {
 	}
 
 	// assign IPs to state
+	var ips = MonitoredIPs{}
 	if ip.To4() != nil {
-		l.state.fromIface.IPv4 = ip.String()
+		ips.IPv4 = ip.String()
 	} else {
-		l.state.fromIface.IPv6 = ip.String()
+		ips.IPv6 = ip.String()
 	}
 
 	// check update trigger condition
-	if !l.state.inSync() {
+	if !l.state.InSync(ips) {
 		log.Info("running IP change destination updates")
 
 		for _, u := range l.updaters {
 			// update the IPs at the destination
-			err = u.Update(l.state.fromIface.IPv4, l.cfg)
+			err = u.Update(ips.IPv4, l.cfg)
 
 			// all updates have to be successful
 			if err != nil {
 				return
 			}
 		}
+		log.Info("all destinations updated")
+
+		// write state to disk
+		l.state.Set(ips)
 		return
 	}
 	log.Debug("IPs are equal. Nothing to do")
 }
 
-func (s *ipState) reset() {
-	s.fromIface = StoredIPs{}
-}
-
-func newState() *ipState {
-	return &ipState{
-		diskLocation: defaultDiskLocation,
-		fromStorage:  StoredIPs{},
-		fromIface:    StoredIPs{},
-	}
-}
-
 type Listener struct {
-	state *ipState
+	state State
 	cfg   *cfg.Config
 
 	// units that will receive an update
@@ -136,7 +74,7 @@ type Listener struct {
 }
 
 // New creates a new listener
-func New(cfg *cfg.Config, upds ...update.Updater) (*Listener, error) {
+func New(cfg *cfg.Config, state State, upds ...update.Updater) (*Listener, error) {
 	l := new(Listener)
 
 	if cfg == nil {
@@ -145,14 +83,10 @@ func New(cfg *cfg.Config, upds ...update.Updater) (*Listener, error) {
 	l.cfg = cfg
 
 	// create initial state
-	l.state = newState()
-
-	if cfg.StateFile != "" {
-		l.state.diskLocation = cfg.StateFile
-	}
+	l.state = state
 
 	// opportunistically attempt to load the state
-	err := l.state.loadFromDisk()
+	_, err := l.state.Get()
 	if err != nil {
 		log.Debugf("loading state failed: %s", err)
 	}
@@ -171,9 +105,6 @@ func (l *Listener) Run() chan struct{} {
 	// setup time interval for periodic checks
 	ticker := time.NewTicker(time.Duration(l.cfg.Interval) * time.Minute)
 	defer ticker.Stop()
-
-	// on return, write the last state one more time
-	defer l.state.writeToDisk()
 
 	// check and update if necessary
 	l.update()
