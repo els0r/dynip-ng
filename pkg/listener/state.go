@@ -7,6 +7,8 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
+// TODO: fix this mess!
+
 // State stores and informs about the current state of the monitored interface's IPs
 type State interface {
 	Setter
@@ -40,7 +42,13 @@ func (f *FileState) Set(ips MonitoredIPs) error {
 // Get reads the state from a YAML file from disk
 func (f *FileState) Get() (MonitoredIPs, error) {
 	err := yaml.NewDecoder(f.fd).Decode(f.stored)
-	return *f.stored, err
+	if err != nil {
+		return MonitoredIPs{}, err
+	}
+	if f.stored == nil {
+		f.stored = &MonitoredIPs{}
+	}
+	return *f.stored, nil
 }
 
 // InSync tests whether the internal state corresponds to the provided one

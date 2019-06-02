@@ -46,11 +46,23 @@ Cloudflare`,
 			return err
 		}
 
-		// create cloudflare updater
-		var cu update.Updater
-		cu, err = update.NewCloudFlareUpdate(config.Cloudflare)
-		if err != nil {
-			return err
+		// create updaters
+		var updaters []update.Updater
+		dests := config.Destinations
+
+		if dests.Cloudflare != nil {
+			cu, err := update.NewCloudFlareUpdate(dests.Cloudflare)
+			if err != nil {
+				return err
+			}
+			updaters = append(updaters, cu)
+		}
+		if dests.File != nil {
+			fu, err := update.NewFileUpdate(dests.File)
+			if err != nil {
+				return err
+			}
+			updaters = append(updaters, fu)
 		}
 
 		// check if the state file is set, otherwise take default path
@@ -66,10 +78,7 @@ Cloudflare`,
 
 		// create listener
 		var l *listener.Listener
-		l, err = listener.New(config.Listen, state, []update.Updater{
-			// line up all different updaters
-			cu,
-		}...)
+		l, err = listener.New(config.Listen, state, updaters...)
 		if err != nil {
 			return fmt.Errorf("failed to create listener: %s", err)
 		}

@@ -17,8 +17,56 @@ type Config struct {
 	// StateFile stores the location of the state file
 	StateFile string `yaml:"state_file"`
 
-	// API configures the accessto cloudflare
-	Cloudflare *CloudflareAPI
+	// Destinations stores all places to be updated
+	Destinations *DestinationsConfig
+}
+
+// DestinationsConfig stores all output destinations
+type DestinationsConfig struct {
+	// configures the cloudflare API
+	Cloudflare *CloudflareAPI `yaml:"cloudflare,omitempty"`
+	// configures the file update config
+	File *FileConfig `yaml:"file,omitempty"`
+}
+
+// FileConfig stores parameters for
+type FileConfig struct {
+	Template string `yaml:"template"`
+	Output   string `yaml:"output"`
+}
+
+func (f *FileConfig) validate() error {
+	if f.Template == "" {
+		return fmt.Errorf("file: no input template provided")
+	}
+	if f.Output == "" {
+		return fmt.Errorf("file: no output file provided")
+	}
+	return nil
+}
+
+func (d DestinationsConfig) validate() error {
+	var sections []validator
+
+	// check if there is at least one destination configured
+	if d.Cloudflare != nil {
+		sections = append(sections, d.Cloudflare)
+	}
+	if d.File != nil {
+		sections = append(sections, d.File)
+	}
+	if len(sections) == 0 {
+		return fmt.Errorf("no destination for IP provided. Need at least one")
+	}
+
+	// run all config subsection validators. Order matters here
+	for _, section := range sections {
+		err := section.validate()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // ListenConfig configures the listener
@@ -97,8 +145,8 @@ func (c *Config) validate() error {
 	if c.Listen == nil {
 		return fmt.Errorf("no listener configuration provided")
 	}
-	if c.Cloudflare == nil {
-		return fmt.Errorf("no cloudflare configuration provided")
+	if c.Destinations == nil {
+		return fmt.Errorf("no destination configuration provided")
 	}
 	return nil
 }
@@ -109,7 +157,7 @@ func (c *Config) Validate() error {
 	for _, section := range []validator{
 		c,
 		c.Listen,
-		c.Cloudflare,
+		c.Destinations,
 	} {
 		err := section.validate()
 		if err != nil {

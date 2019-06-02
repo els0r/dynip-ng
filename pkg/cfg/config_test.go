@@ -11,15 +11,48 @@ var tests = []struct {
 	cfg        string
 }{
 	{
-		"valid configuration",
+		"valid configuration (both destinations)",
 		true,
 		`state_file: "/root/.ip-state"
-cloudflare:
-    access:
-        key: 123
-        email: test@example.com
-    zone: example.ch
-    record: dynip
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        zone: example.ch
+        record: dynip
+    file:
+        template: /path/to/template
+        output: /path/to/output
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"valid configuration (dloudflare)",
+		true,
+		`state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        zone: example.ch
+        record: dynip
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"valid configuration (file)",
+		true,
+		`state_file: "/root/.ip-state"
+destinations:
+    file:
+        template: /path/to/template
+        output: /path/to/output
 listen:
     interval: 10
     iface: eth0
@@ -29,12 +62,13 @@ listen:
 		"wrong interval value",
 		false,
 		`state_file: "/root/.ip-state"
-cloudflare:
-    access:
-        key: 123
-        email: test@example.com
-    zone: example.ch
-    record: dynip
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        zone: example.ch
+        record: dynip
 listen:
     interval: -1
     iface: eth0
@@ -44,11 +78,12 @@ listen:
 		"zone missing",
 		false,
 		`state_file: "/root/.ip-state"
-cloudflare:
-    access:
-        key: 123
-        email: test@example.com
-    record: dynip
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        record: dynip
 listen:
     interval: -1
     iface: eth0
@@ -65,10 +100,12 @@ listen:
 		"invalid API configuration - key missing",
 		false,
 		`state_file: "/root/.ip-state"
-cloudflare:
-    access:
-        email: test@example.com
-    record: dynip
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        record: dynip
 listen:
     interval: -1
     iface: eth0
@@ -89,6 +126,7 @@ func TestValidate(t *testing.T) {
 			cfg, err := Parse(r)
 			if test.shouldPass {
 				if err != nil {
+					t.Logf("config: %s", cfg)
 					t.Fatalf("[%d] couldn't parse config: %s", i, err)
 				}
 				t.Log(cfg)
