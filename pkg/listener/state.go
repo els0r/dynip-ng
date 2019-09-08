@@ -1,6 +1,7 @@
 package listener
 
 import (
+	"fmt"
 	"os"
 	"reflect"
 
@@ -35,25 +36,32 @@ type MonitoredIPs struct {
 
 // Set writes a the state to disk in YAML representation
 func (f *FileState) Set(ips MonitoredIPs) error {
-	f.stored = &ips
-	return yaml.NewEncoder(f.fd).Encode(f.stored)
+	if f.fd == nil {
+		return fmt.Errorf("state file not open")
+	}
+	return yaml.NewEncoder(f.fd).Encode(&ips)
 }
 
 // Get reads the state from a YAML file from disk
 func (f *FileState) Get() (MonitoredIPs, error) {
-	err := yaml.NewDecoder(f.fd).Decode(f.stored)
+	stored := MonitoredIPs{}
+	if f.fd == nil {
+		return stored, fmt.Errorf("state file not open")
+	}
+	err := yaml.NewDecoder(f.fd).Decode(&stored)
 	if err != nil {
 		return MonitoredIPs{}, err
 	}
-	if f.stored == nil {
-		f.stored = &MonitoredIPs{}
-	}
-	return *f.stored, nil
+	return stored, nil
 }
 
 // InSync tests whether the internal state corresponds to the provided one
 func (f *FileState) InSync(with MonitoredIPs) bool {
-	return reflect.DeepEqual(with, *f.stored)
+	stored, err := f.Get()
+	if err != nil {
+		return false
+	}
+	return reflect.DeepEqual(with, stored)
 }
 
 // Reset writes an epty state to disk
@@ -63,8 +71,7 @@ func (f *FileState) Reset() error {
 
 // FileState supplies methods to handle the state via a file
 type FileState struct {
-	fd     *os.File
-	stored *MonitoredIPs
+	fd *os.File
 }
 
 // NewFileState creates a new FileState

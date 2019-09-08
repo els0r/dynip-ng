@@ -47,19 +47,28 @@ func (l *Listener) update() {
 	if !l.state.InSync(ips) {
 		log.Info("running IP change destination updates")
 
+		tstart := time.Now()
+		var numErrors int
 		for _, u := range l.updaters {
 			// update the IPs at the destination
 			err = u.Update(ips.IPv4)
 
-			// all updates have to be successful
+			// log errors
 			if err != nil {
-				return
+				log.Error(err)
+				numErrors++
 			}
 		}
-		log.Info("all destinations updated")
+		if numErrors == 0 {
+			log.Infof("all destinations updated in %s", time.Now().Sub(tstart))
 
-		// write state to disk
-		l.state.Set(ips)
+			// write state to disk only if all updates were successful
+			l.state.Set(ips)
+		} else if numErrors == len(l.updaters) {
+			log.Errorf("all destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))
+		} else {
+			log.Warnf("some destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))
+		}
 		return
 	}
 	log.Debug("IPs are equal. Nothing to do")
@@ -79,7 +88,7 @@ func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener,
 	l := new(Listener)
 
 	if cfg == nil {
-		return nil, fmt.Errorf("cannot run with <nil> config")
+		return nil, fmt.Errorf("cannot run without listener config")
 	}
 	l.cfg = cfg
 
@@ -90,6 +99,7 @@ func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener,
 	_, err := l.state.Get()
 	if err != nil {
 		log.Debugf("loading state failed: %s", err)
+		l.state.Reset()
 	}
 
 	// assign updaters
@@ -101,7 +111,7 @@ func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener,
 // Run starts the IP change listener
 func (l *Listener) Run() chan struct{} {
 
-	log.Debugf("Running with config: %s", l.cfg)
+	log.Debugf("running with config: %s", l.cfg)
 
 	// setup time interval for periodic checks
 	ticker := time.NewTicker(time.Duration(l.cfg.Interval) * time.Minute)

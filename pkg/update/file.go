@@ -43,6 +43,8 @@ func NewFileUpdate(cfg *cfg.FileConfig, opts ...FOption) (*FileUpdate, error) {
 }
 
 func (f *FileUpdate) Update(ip string) error {
+	logger.Debugf("updating file: %s", f.outputPath)
+
 	// parse template file
 	templ, err := template.ParseFiles(f.templatePath)
 	if err != nil {

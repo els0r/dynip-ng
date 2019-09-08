@@ -6,10 +6,10 @@ import (
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	"github.com/els0r/dynip-ng/pkg/cfg"
 
-	logger "github.com/els0r/log"
+	log "github.com/els0r/log"
 )
 
-var log, _ = logger.NewFromString("console", logger.WithLevel(logger.DEBUG))
+var logger, _ = log.NewFromString("console", log.WithLevel(log.DEBUG))
 
 // CloudFlareUpdate communicates with the cloudflare API to change records
 type CloudFlareUpdate struct {
@@ -60,6 +60,8 @@ func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareU
 // Update changes the record from the config in Cloudflare to `ip`
 func (c *CloudFlareUpdate) Update(IP string) error {
 
+	logger.Debug("updating Cloudflare")
+
 	// Fetch the zone ID
 	zoneID, err := c.api.ZoneIDByName(c.cfg.Zone)
 	if err != nil {
@@ -91,7 +93,7 @@ func (c *CloudFlareUpdate) Update(IP string) error {
 				if err != nil {
 					return err
 				}
-				log.Infof("Updated A record '%s' with IP address '%s'", recordToUpdate, IP)
+				logger.Debugf("updated A record '%s' with IP address '%s'", recordToUpdate, IP)
 				return nil
 			}
 		}

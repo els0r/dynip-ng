@@ -36,7 +36,7 @@ all parameters have been provided`,
 		if err != nil {
 			return err
 		}
-		fmt.Printf("Config:\n\t%s", config)
+		fmt.Printf("Config:\n\t%s\n", config)
 		return nil
 	},
 }

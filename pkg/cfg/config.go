@@ -120,9 +120,14 @@ func New() *Config {
 
 // String provides quick info about what this configuration updates
 func (c *Config) String() string {
-	return fmt.Sprintf("Updates every: %dm; Iface: %q",
-		c.Listen.Interval,
-		c.Listen.Iface)
+	return c.Listen.String()
+}
+
+// String provides quick info about what the listener does
+func (l *ListenConfig) String() string {
+	return fmt.Sprintf("updates every: %dm; Iface: %q",
+		l.Interval,
+		l.Iface)
 }
 
 // the validator interface is a contract to show if a concrete type is
