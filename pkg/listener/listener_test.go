@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/listener/state"
 	"github.com/els0r/dynip-ng/pkg/update"
 )
 
@@ -31,7 +32,7 @@ func TestListener(t *testing.T) {
 
 			config := test.config
 
-			state := NewInMemoryState()
+			state := state.NewInMemory()
 			mu := &mockUpdater{}
 
 			// create listener

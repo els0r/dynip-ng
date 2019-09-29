@@ -22,12 +22,11 @@ import (
 
 	"github.com/els0r/dynip-ng/pkg/cfg"
 	"github.com/els0r/dynip-ng/pkg/listener"
+	"github.com/els0r/dynip-ng/pkg/listener/state"
 	"github.com/els0r/dynip-ng/pkg/logging"
 	"github.com/els0r/dynip-ng/pkg/update"
 	"github.com/spf13/cobra"
 )
-
-const defaultStateDiskLocation = "/var/run/.cf-dyn-ip"
 
 // runCmd represents the run command
 var runCmd = &cobra.Command{
@@ -75,13 +74,8 @@ attributes. For example the A record on Cloudflare.`,
 			logging.Get().Debug("Initialized file updates")
 		}
 
-		// check if the state file is set, otherwise take default path
-		path := defaultStateDiskLocation
-		if config.StateFile != "" {
-			path = config.StateFile
-		}
-
-		state, err := listener.NewFileState(path)
+		// prepare the state
+		state, err := state.New(config.State)
 		if err != nil {
 			return fmt.Errorf("failed to create state: %s", err)
 		}

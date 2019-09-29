@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/listener/state"
 	"github.com/els0r/dynip-ng/pkg/logging"
 	"github.com/els0r/dynip-ng/pkg/update"
 	log "github.com/els0r/log"
@@ -22,7 +23,10 @@ func (l *Listener) update() {
 	defer func(err error) {
 		// reset and return
 		if err != nil {
-			l.state.Reset()
+			serr := l.state.Reset()
+			if serr != nil {
+				l.log.Warnf("failed to reset state: %s", serr)
+			}
 			return
 		}
 	}(err)
@@ -35,16 +39,17 @@ func (l *Listener) update() {
 	}
 	l.log.Debugf("current interface IP is %q", ip)
 
-	// assign IPs to state
-	var ips = MonitoredIPs{}
-	if ip.To4() != nil {
-		ips.IPv4 = ip.String()
-	} else {
-		ips.IPv6 = ip.String()
+	// assign read out IPs to state
+	var ips = state.NewMonitoredIPs(ip)
+
+	// get stored state
+	storedIPs, err := l.state.Get()
+	if err != nil {
+		l.log.Warnf("failed to get state: %s", err)
 	}
 
 	// check update trigger condition
-	if !l.state.InSync(ips) {
+	if !state.Equal(storedIPs, ips) {
 		l.log.Infof("IP(s) changed (%s): running destination updates", ips)
 
 		tstart := time.Now()
@@ -65,7 +70,10 @@ func (l *Listener) update() {
 			l.log.Infof("all destinations updated in %s", time.Now().Sub(tstart))
 
 			// write state only if all updates were successful
-			l.state.Set(ips)
+			err = l.state.Set(ips)
+			if err != nil {
+				l.log.Warnf("failed to set new state: %s", err)
+			}
 		} else if numErrors == len(l.updaters) {
 			l.log.Errorf("all destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))
 		} else {
@@ -78,7 +86,7 @@ func (l *Listener) update() {
 
 // Listener listens for IP changes on an interface and updates all its configured destinations
 type Listener struct {
-	state State
+	state state.State
 	cfg   *cfg.ListenConfig
 
 	// units that will receive an update
@@ -89,7 +97,7 @@ type Listener struct {
 }
 
 // New creates a new listener
-func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener, error) {
+func New(cfg *cfg.ListenConfig, state state.State, upds ...update.Updater) (*Listener, error) {
 	l := new(Listener)
 
 	// get the program level logger

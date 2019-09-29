@@ -5,6 +5,28 @@ import (
 	"testing"
 )
 
+var validStateConfig = `
+state:
+        type: file
+        location: "/root/.ip-state"
+`
+
+var invalidStateConfigs = []string{`
+state:
+        type: unknown
+        location: unknown
+`,
+	`
+state:
+        type: file
+`}
+
+var validListenConfig = `
+listen:
+    interval: 10
+    iface: eth0
+`
+
 var tests = []struct {
 	name       string
 	shouldPass bool
@@ -13,8 +35,7 @@ var tests = []struct {
 	{
 		"valid configuration (both destinations)",
 		true,
-		`---
-state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
         access:
@@ -27,17 +48,48 @@ destinations:
     file:
         template: /path/to/template
         output: /path/to/output
+        ` + validListenConfig,
+	},
+	{
+		"unsupported state type",
+		false,
+		`---` + invalidStateConfigs[0] + `
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
 
-listen:
-    interval: 10
-    iface: eth0
-        `,
+        zones:
+            example.ch:
+                record: dynip
+    file:
+        template: /path/to/template
+        output: /path/to/output
+        ` + validListenConfig,
+	},
+	{
+		"empty state location",
+		false,
+		`---` + invalidStateConfigs[1] + `
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+
+        zones:
+            example.ch:
+                record: dynip
+    file:
+        template: /path/to/template
+        output: /path/to/output
+        ` + validListenConfig,
 	},
 	{
 		"no listen interface",
 		false,
-		`---
-state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
         access:
@@ -58,8 +110,7 @@ listen:
 	{
 		"valid configuration (cloudflare)",
 		true,
-		`---
-state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
         access:
@@ -78,8 +129,7 @@ listen:
 	{
 		"no access section (cloudflare)",
 		false,
-		`---
-state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
         zones:
@@ -94,8 +144,7 @@ listen:
 	{
 		"no email in access (cloudflare)",
 		false,
-		`---
-state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
 				access:
@@ -112,8 +161,7 @@ listen:
 	{
 		"empty zone (cloudflare)",
 		false,
-		`---
-state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
 				access:
@@ -130,8 +178,7 @@ listen:
 	{
 		"no destinations",
 		false,
-		`---
-state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 listen:
     interval: 10
     iface: eth0
@@ -140,7 +187,7 @@ listen:
 	{
 		"valid configuration (file)",
 		true,
-		`state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     file:
         template: /path/to/template
@@ -153,7 +200,7 @@ listen:
 	{
 		"wrong interval value",
 		false,
-		`state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
         access:
@@ -169,13 +216,13 @@ listen:
 	{
 		"zone missing",
 		false,
-		`state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
         access:
             key: 123
             email: test@example.com
-        record: dynip
+
 listen:
     interval: -1
     iface: eth0
@@ -191,11 +238,10 @@ listen:
 	{
 		"invalid API configuration - key missing",
 		false,
-		`state_file: "/root/.ip-state"
+		`---` + validStateConfig + `
 destinations:
     cloudflare:
         access:
-            key: 123
             email: test@example.com
         record: dynip
 listen:
