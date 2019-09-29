@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 
 	yaml "gopkg.in/yaml.v2"
 )
@@ -15,13 +16,37 @@ type Config struct {
 	Listen *ListenConfig
 
 	// StateFile stores the location of the state file
-	StateFile string `yaml:"state_file"`
+	State *StateConfig
 
 	// Destinations stores all places to be updated
 	Destinations *DestinationsConfig
 
 	// Logging configuration
 	Logging *LoggingConfig `yaml:"logging"`
+}
+
+// StateConfig configures how the state should be kept and where
+type StateConfig struct {
+	// Type of state tracking (file, memory, etc.)
+	Type string
+
+	// Location of the state resource
+	Location string
+}
+
+func (s *StateConfig) validate() error {
+	t := strings.ToLower(s.Type)
+
+	switch t {
+	case "memory", "file":
+		break
+	default:
+		return fmt.Errorf("state type %q is not (yet) supported", s.Type)
+	}
+	if s.Location == "" && t != "memory" {
+		return fmt.Errorf("state location not provided")
+	}
+	return nil
 }
 
 // LoggingConfig can reconfigure the program logger
@@ -139,6 +164,9 @@ func (c *CloudflareAPI) validate() error {
 // New creates a default configuration
 func New() *Config {
 	return &Config{
+		State: &StateConfig{
+			Type: "memory", // by default, track the state in memory
+		},
 		Listen: &ListenConfig{
 			Interval: 5, // standard check is every 5 minutes
 		},
@@ -185,6 +213,9 @@ func (c *Config) validate() error {
 	if c.Destinations == nil {
 		return fmt.Errorf("no destination configuration provided")
 	}
+	if c.State == nil {
+		return fmt.Errorf("no state configuration provided")
+	}
 	return nil
 }
 
@@ -194,6 +225,7 @@ func (c *Config) Validate() error {
 	for _, section := range []validator{
 		c,
 		c.Listen,
+		c.State,
 		c.Destinations,
 	} {
 		err := section.validate()

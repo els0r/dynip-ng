@@ -1,3 +1,4 @@
+---
 # store state on disk
 state:
     type: file
@@ -23,9 +24,9 @@ destinations:
                 # storing the IP address of interface eth0
                 record: dynip-first
 
-			# you can also leave the record field empty if
-			# the A record has the same name as the zone
-			# itself
+            # you can also leave the record field empty if
+            # the A record has the same name as the zone
+            # itself
             example.ch: {}
 
     file:
