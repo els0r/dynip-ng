@@ -8,8 +8,6 @@ import (
 	yaml "gopkg.in/yaml.v2"
 )
 
-// TODO: fix this mess!
-
 // State stores and informs about the current state of the monitored interface's IPs
 type State interface {
 	Setter

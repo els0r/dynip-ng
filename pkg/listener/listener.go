@@ -62,7 +62,7 @@ func (l *Listener) update() {
 		if numErrors == 0 {
 			log.Infof("all destinations updated in %s", time.Now().Sub(tstart))
 
-			// write state to disk only if all updates were successful
+			// write state only if all updates were successful
 			l.state.Set(ips)
 		} else if numErrors == len(l.updaters) {
 			log.Errorf("all destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))

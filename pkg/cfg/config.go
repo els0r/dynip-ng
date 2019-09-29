@@ -88,11 +88,21 @@ type CloudflareAPI struct {
 		Email string
 	}
 
-	// Record which should be changed
-	Record string
+	// list of Zones to update
+	Zones map[string]*Zone
+}
 
-	// Zone holding the record
-	Zone string
+// Zone stores the DNS objects that should be updated
+type Zone struct {
+	// Record to change
+	Record string
+}
+
+func (z *Zone) validate() error {
+	if z.Record == "" {
+		return fmt.Errorf("cloudflare: zone does not include a record to update")
+	}
+	return nil
 }
 
 func (c *CloudflareAPI) validate() error {
@@ -102,8 +112,17 @@ func (c *CloudflareAPI) validate() error {
 	if c.Access.Email == "" {
 		return fmt.Errorf("cloudflare: no API email provided")
 	}
-	if c.Zone == "" {
+	if len(c.Zones) == 0 {
 		return fmt.Errorf("cloudflare: no zone to update record in provided")
+	}
+	for name, zone := range c.Zones {
+		if name == "" {
+			return fmt.Errorf("cloudflare: zone with no name provided")
+		}
+		err := zone.validate()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -112,8 +131,7 @@ func (c *CloudflareAPI) validate() error {
 func New() *Config {
 	return &Config{
 		Listen: &ListenConfig{
-			Iface:    "eth0", // assumes that eth0 is the default interface
-			Interval: 5,      // standard check is every 5 minutes
+			Interval: 5, // standard check is every 5 minutes
 		},
 	}
 }

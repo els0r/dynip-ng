@@ -13,33 +13,125 @@ var tests = []struct {
 	{
 		"valid configuration (both destinations)",
 		true,
-		`state_file: "/root/.ip-state"
+		`---
+state_file: "/root/.ip-state"
 destinations:
     cloudflare:
         access:
             key: 123
             email: test@example.com
-        zone: example.ch
-        record: dynip
+
+        zones:
+            example.ch:
+                record: dynip
     file:
         template: /path/to/template
         output: /path/to/output
+
 listen:
     interval: 10
     iface: eth0
         `,
 	},
 	{
-		"valid configuration (dloudflare)",
-		true,
-		`state_file: "/root/.ip-state"
+		"no listen interface",
+		false,
+		`---
+state_file: "/root/.ip-state"
 destinations:
     cloudflare:
         access:
             key: 123
             email: test@example.com
-        zone: example.ch
-        record: dynip
+
+        zones:
+            example.ch:
+                record: dynip
+    file:
+        template: /path/to/template
+        output: /path/to/output
+
+listen:
+    interval: 10
+        `,
+	},
+	{
+		"valid configuration (cloudflare)",
+		true,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+
+        zones:
+            example.ch:
+                record: dynip
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"no access section (cloudflare)",
+		false,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        zones:
+            example.ch:
+                record: dynip
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"no email in access (cloudflare)",
+		false,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+				access:
+						key: 123
+        zones:
+            example.ch:
+                record: dynip
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"empty zone (cloudflare)",
+		false,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+				access:
+						key: 123
+        zones:
+            example.ch:
+                record: ""
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"no destinations",
+		false,
+		`---
+state_file: "/root/.ip-state"
 listen:
     interval: 10
     iface: eth0

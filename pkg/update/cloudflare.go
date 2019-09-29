@@ -60,43 +60,48 @@ func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareU
 // Update changes the record from the config in Cloudflare to `ip`
 func (c *CloudFlareUpdate) Update(IP string) error {
 
-	logger.Debug("updating Cloudflare")
+	logger.Debug("updating Cloudflare zones")
 
-	// Fetch the zone ID
-	zoneID, err := c.api.ZoneIDByName(c.cfg.Zone)
-	if err != nil {
-		return err
-	}
+	for name, zoneCfg := range c.cfg.Zones {
+		logger.Debugf("updating Cloudflare zone: %s", name)
 
-	// Fetch all records for a zone
-	recs, err := c.api.DNSRecords(zoneID, cloudflare.DNSRecord{})
-	if err != nil {
-		return err
-	}
+		// Fetch the zone ID
+		zoneID, err := c.api.ZoneIDByName(name)
+		if err != nil {
+			return err
+		}
 
-	recordToUpdate := c.cfg.Zone
-	if c.cfg.Record != "" {
-		recordToUpdate = c.cfg.Record + "." + c.cfg.Zone
-	}
+		// Fetch all records for a zone
+		recs, err := c.api.DNSRecords(zoneID, cloudflare.DNSRecord{})
+		if err != nil {
+			return err
+		}
 
-	for _, r := range recs {
-		// only take the A record
-		if r.Type == "A" {
+		recordToUpdate := name
+		if zoneCfg.Record != "" {
+			recordToUpdate = zoneCfg.Record + "." + name
+		}
 
-			// update if it is the IP address record
-			if r.Name == recordToUpdate {
+		for _, r := range recs {
+			// only take the A record
+			if r.Type == "A" {
 
-				// set to new IP address
-				r.Content = IP
+				// update if it is the IP address record
+				if r.Name == recordToUpdate {
 
-				err = c.api.UpdateDNSRecord(zoneID, r.ID, r)
-				if err != nil {
-					return err
+					// set to new IP address
+					r.Content = IP
+
+					err = c.api.UpdateDNSRecord(zoneID, r.ID, r)
+					if err != nil {
+						return err
+					}
+					logger.Debugf("updated A record '%s' with IP address '%s'", recordToUpdate, IP)
+					return nil
 				}
-				logger.Debugf("updated A record '%s' with IP address '%s'", recordToUpdate, IP)
-				return nil
 			}
 		}
+		return fmt.Errorf("record %q was not found", recordToUpdate)
 	}
-	return fmt.Errorf("record %q was not found", recordToUpdate)
+	return nil
 }

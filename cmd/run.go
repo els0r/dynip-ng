@@ -32,8 +32,8 @@ const defaultStateDiskLocation = "/var/run/.cf-dyn-ip"
 var runCmd = &cobra.Command{
 	Use:   "run",
 	Short: "Run the IP update listener",
-	Long: `Listens for changes on interface and updates configured A record in
-Cloudflare`,
+	Long: `Listens for changes on interface and updates it's configured receivers
+attributes. For example the A record on Cloudflare.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 
 		// we quit on encountering SIGTERM or SIGINT

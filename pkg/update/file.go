@@ -11,16 +11,17 @@ import (
 
 // FileUpdate supplies methods to update the IP in a template and write it to an output file
 type FileUpdate struct {
-	templatePath string
-	outputPath   string
-	outputWriter io.Writer
+	templatePath      string
+	outputPath        string
+	outputWriteCloser io.WriteCloser
 }
 
 type FOption func(*FileUpdate)
 
-func WithOutputWriter(w io.Writer) FOption {
+// WithOutputWriter allows for a more generic way of writing the output
+func WithOutputWriteCloser(wc io.WriteCloser) FOption {
 	return func(f *FileUpdate) {
-		f.outputWriter = w
+		f.outputWriteCloser = wc
 	}
 }
 
@@ -35,7 +36,7 @@ func NewFileUpdate(cfg *cfg.FileConfig, opts ...FOption) (*FileUpdate, error) {
 		opt(f)
 	}
 
-	if f.outputPath == "" && f.outputWriter == nil {
+	if f.outputPath == "" && f.outputWriteCloser == nil {
 		return nil, fmt.Errorf("file update must have an output")
 	}
 
@@ -57,9 +58,12 @@ func (f *FileUpdate) Update(ip string) error {
 		if err != nil {
 			return err
 		}
-		f.outputWriter = fd
+		f.outputWriteCloser = fd
 	}
+	defer func(wc io.WriteCloser) {
+		wc.Close()
+	}(f.outputWriteCloser)
 
 	// execute the template and store result in output
-	return templ.Execute(f.outputWriter, ip)
+	return templ.Execute(f.outputWriteCloser, ip)
 }

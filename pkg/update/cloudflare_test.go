@@ -115,15 +115,21 @@ func TestCloudFlareUpdate(t *testing.T) {
 		shouldPass bool
 	}{
 		{"record found", IP, &cfg.CloudflareAPI{
-			Zone: zoneName, Record: recordName,
+			Zones: map[string]*cfg.Zone{
+				zoneName: &cfg.Zone{Record: recordName},
+			},
 			Access: struct{ Key, Email string }{"key", "e@mail.com"},
 		}, true},
 		{"zone not found", IP, &cfg.CloudflareAPI{
-			Zone: "notAvailable", Record: recordName,
+			Zones: map[string]*cfg.Zone{
+				"notAvailable": &cfg.Zone{Record: recordName},
+			},
 			Access: struct{ Key, Email string }{"key", "e@mail.com"},
 		}, false},
 		{"record not found", IP, &cfg.CloudflareAPI{
-			Zone: zoneName, Record: "notAvailable",
+			Zones: map[string]*cfg.Zone{
+				zoneName: &cfg.Zone{Record: "notAvailable"},
+			},
 			Access: struct{ Key, Email string }{"key", "e@mail.com"},
 		}, false},
 	}
