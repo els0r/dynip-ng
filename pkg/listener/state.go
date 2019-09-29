@@ -47,18 +47,21 @@ func (m MonitoredIPs) String() string {
 
 // Set writes a the state to disk in YAML representation
 func (f *FileState) Set(ips MonitoredIPs) error {
-	if f.fd == nil {
-		return fmt.Errorf("state file not open")
+	if f.open() != nil {
+		return fmt.Errorf("unable to open state file")
 	}
+	defer f.close()
 	return yaml.NewEncoder(f.fd).Encode(&ips)
 }
 
 // Get reads the state from a YAML file from disk
 func (f *FileState) Get() (MonitoredIPs, error) {
 	stored := MonitoredIPs{}
-	if f.fd == nil {
-		return stored, fmt.Errorf("state file not open")
+	if f.open() != nil {
+		return stored, fmt.Errorf("unable to open state file")
 	}
+	defer f.close()
+
 	err := yaml.NewDecoder(f.fd).Decode(&stored)
 	if err != nil {
 		return MonitoredIPs{}, err
@@ -82,20 +85,29 @@ func (f *FileState) Reset() error {
 
 // FileState supplies methods to handle the state via a file
 type FileState struct {
-	fd *os.File
+	fd   *os.File
+	path string
 }
 
 // NewFileState creates a new FileState
 func NewFileState(path string) (*FileState, error) {
-	var err error
-
 	f := new(FileState)
+	f.path = path
 
-	f.fd, err = os.OpenFile(path, os.O_RDWR|os.O_CREATE, 0666)
-	if err != nil {
-		return nil, err
-	}
 	return f, nil
+}
+
+func (f *FileState) open() error {
+	var err error
+	f.fd, err = os.OpenFile(f.path, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
+	return err
+}
+
+func (f *FileState) close() error {
+	if f.fd == nil {
+		return nil
+	}
+	return f.fd.Close()
 }
 
 // InMemoryState stores the state in memory. It is hence volatile and only persistent as long
