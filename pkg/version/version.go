@@ -26,7 +26,7 @@ func Version() string {
 
 	str := fmt.Sprintf(`    Build time:     %s
     Git hash:       %s
-    Go versions:    %s
+    Go version:     %s
 `, BuildTime.In(time.UTC).Format(time.Stamp+" 2006 UTC"),
 		GitSHA,
 		runtime.Version(),

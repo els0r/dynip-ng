@@ -35,7 +35,7 @@ func WithCFAPI(api CloudflareAPI) CFOption {
 	}
 }
 
-// NewCloudFlareUpdate return a new cloudflare updater
+// NewCloudFlareUpdate returns a new cloudflare updater
 func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareUpdate, error) {
 	c := new(CloudFlareUpdate)
 

@@ -1,0 +1,14 @@
+# systemd service
+[Unit]
+Description=Dynamic IP Updater
+After=network.target syslog.target
+
+[Service]
+ExecStart=/opt/dynip/bin/dynip-ng run -c /opt/dynip/etc/dynip-ng.yml
+StandardOutput=syslog
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target
+Alias=dnyip.service
+

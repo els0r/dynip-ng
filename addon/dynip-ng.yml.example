@@ -1,0 +1,43 @@
+# store state on disk
+state:
+    type: file
+    location: /var/run/.cf-dynip
+
+listen:
+    iface: eth0
+    # time between checks (in minutes)
+    interval: 10
+
+destinations:
+    cloudflare:
+        # this requires you to create an API key on
+        # cloudflare for your account
+        access:
+            key: a0a0d7540b7cf3e9e78adfe611d816b9
+            email: info@example.com
+
+        zones:
+            # update your cloudflare zones
+            example.com:
+                # this assumes that below is an A record
+                # storing the IP address of interface eth0
+                record: dynip-first
+
+			# you can also leave the record field empty if
+			# the A record has the same name as the zone
+			# itself
+            example.ch: {}
+
+    file:
+        # update caddy files that bind to the external IP
+        # the simplest template file would contain
+        # {{ . }}
+        template: /opt/caddy/etc/sites-enabled.gotmpl
+        output: /opt/caddy/etc/sites-enabled
+
+# configure logging
+# for supported configurations, check
+# https://github.com/els0r/log
+logging:
+    destination: console
+    level: debug

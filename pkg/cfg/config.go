@@ -111,9 +111,6 @@ type Zone struct {
 }
 
 func (z *Zone) validate() error {
-	if z.Record == "" {
-		return fmt.Errorf("cloudflare: zone does not include a record to update")
-	}
 	return nil
 }
 
