@@ -19,6 +19,18 @@ type Config struct {
 
 	// Destinations stores all places to be updated
 	Destinations *DestinationsConfig
+
+	// Logging configuration
+	Logging *LoggingConfig `yaml:"logging"`
+}
+
+// LoggingConfig can reconfigure the program logger
+type LoggingConfig struct {
+	// Where are logs written
+	Destination string `yaml:"destination"`
+
+	// Log level
+	Level string `yaml:"level"`
 }
 
 // DestinationsConfig stores all output destinations
@@ -133,6 +145,10 @@ func New() *Config {
 		Listen: &ListenConfig{
 			Interval: 5, // standard check is every 5 minutes
 		},
+		Logging: &LoggingConfig{
+			Destination: "console", // log to console by default
+			Level:       "INFO",
+		},
 	}
 }
 
@@ -145,7 +161,8 @@ func (c *Config) String() string {
 func (l *ListenConfig) String() string {
 	return fmt.Sprintf("updates every: %dm; Iface: %q",
 		l.Interval,
-		l.Iface)
+		l.Iface,
+	)
 }
 
 // the validator interface is a contract to show if a concrete type is

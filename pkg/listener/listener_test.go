@@ -11,6 +11,7 @@ import (
 type mockUpdater struct{}
 
 func (m *mockUpdater) Update(ip string) error { return nil }
+func (m *mockUpdater) Name() string           { return "mock updater" }
 
 func TestListener(t *testing.T) {
 	var tests = []struct {

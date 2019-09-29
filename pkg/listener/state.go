@@ -32,6 +32,19 @@ type MonitoredIPs struct {
 	IPv6 string
 }
 
+// String outputs the stored IPv4 and IPv6 information
+func (m MonitoredIPs) String() string {
+	var v4, v6 = m.IPv4, m.IPv6
+	empty := "<EMPTY>"
+	if v6 == "" {
+		v6 = empty
+	}
+	if v4 == "" {
+		v4 = empty
+	}
+	return fmt.Sprintf("v4=%s, v6=%s", v4, v6)
+}
+
 // Set writes a the state to disk in YAML representation
 func (f *FileState) Set(ips MonitoredIPs) error {
 	if f.fd == nil {

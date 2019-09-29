@@ -22,6 +22,7 @@ import (
 
 	"github.com/els0r/dynip-ng/pkg/cfg"
 	"github.com/els0r/dynip-ng/pkg/listener"
+	"github.com/els0r/dynip-ng/pkg/logging"
 	"github.com/els0r/dynip-ng/pkg/update"
 	"github.com/spf13/cobra"
 )
@@ -46,6 +47,13 @@ attributes. For example the A record on Cloudflare.`,
 			return err
 		}
 
+		// initialize logger
+		err = logging.Init(config.Logging)
+		if err != nil {
+			return err
+		}
+		logging.Get().Debug("Initialized logger")
+
 		// create updaters
 		var updaters []update.Updater
 		dests := config.Destinations
@@ -56,6 +64,7 @@ attributes. For example the A record on Cloudflare.`,
 				return err
 			}
 			updaters = append(updaters, cu)
+			logging.Get().Debug("Initialized cloudflare updates")
 		}
 		if dests.File != nil {
 			fu, err := update.NewFileUpdate(dests.File)
@@ -63,6 +72,7 @@ attributes. For example the A record on Cloudflare.`,
 				return err
 			}
 			updaters = append(updaters, fu)
+			logging.Get().Debug("Initialized file updates")
 		}
 
 		// check if the state file is set, otherwise take default path
@@ -75,6 +85,7 @@ attributes. For example the A record on Cloudflare.`,
 		if err != nil {
 			return fmt.Errorf("failed to create state: %s", err)
 		}
+		logging.Get().Debug("Initialized state tracking")
 
 		// create listener
 		var l *listener.Listener
@@ -84,6 +95,7 @@ attributes. For example the A record on Cloudflare.`,
 		}
 
 		// and run it
+		logging.Get().Debug("Spawning listener")
 		stop := l.Run()
 
 		// listen for the exit signal and stop the listener

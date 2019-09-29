@@ -5,16 +5,16 @@ import (
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/logging"
 
 	log "github.com/els0r/log"
 )
-
-var logger, _ = log.NewFromString("console", log.WithLevel(log.DEBUG))
 
 // CloudFlareUpdate communicates with the cloudflare API to change records
 type CloudFlareUpdate struct {
 	api CloudflareAPI
 	cfg *cfg.CloudflareAPI
+	log log.Logger
 }
 
 // CloudflareAPI allows us to decouple the third-party CloudFlare API implementation.
@@ -42,6 +42,9 @@ func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareU
 	// store zone and record update config
 	c.cfg = cfg
 
+	// initialize the logger
+	c.log = logging.Get()
+
 	// Construct a new API object
 	var err error
 	c.api, err = cloudflare.New(cfg.Access.Key, cfg.Access.Email)
@@ -57,13 +60,16 @@ func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareU
 	return c, nil
 }
 
+// Name returns a human-readable identifier for the updater
+func (c *CloudFlareUpdate) Name() string {
+	return "cloudflare updater"
+}
+
 // Update changes the record from the config in Cloudflare to `ip`
 func (c *CloudFlareUpdate) Update(IP string) error {
 
-	logger.Debug("updating Cloudflare zones")
-
 	for name, zoneCfg := range c.cfg.Zones {
-		logger.Debugf("updating Cloudflare zone: %s", name)
+		c.log.Debugf("updating Cloudflare zone: %s", name)
 
 		// Fetch the zone ID
 		zoneID, err := c.api.ZoneIDByName(name)
@@ -96,7 +102,7 @@ func (c *CloudFlareUpdate) Update(IP string) error {
 					if err != nil {
 						return err
 					}
-					logger.Debugf("updated A record '%s' with IP address '%s'", recordToUpdate, IP)
+					c.log.Debugf("updated A record '%s' with IP address '%s'", recordToUpdate, IP)
 					return nil
 				}
 			}

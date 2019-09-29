@@ -7,11 +7,10 @@ import (
 	"time"
 
 	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/logging"
 	"github.com/els0r/dynip-ng/pkg/update"
-	logger "github.com/els0r/log"
+	log "github.com/els0r/log"
 )
-
-var log, _ = logger.NewFromString("console", logger.WithLevel(logger.DEBUG))
 
 func (l *Listener) update() {
 	var (
@@ -23,7 +22,6 @@ func (l *Listener) update() {
 	defer func(err error) {
 		// reset and return
 		if err != nil {
-			log.Errorf("update failed: %s", err)
 			l.state.Reset()
 			return
 		}
@@ -32,8 +30,10 @@ func (l *Listener) update() {
 	// get current ip addresses
 	ip, err = getLocalAddress(l.cfg.Iface)
 	if err != nil {
+		l.log.Errorf("failed to get IP address on %q: %s", l.cfg.Iface, err)
 		return
 	}
+	l.log.Debugf("current interface IP is %q", ip)
 
 	// assign IPs to state
 	var ips = MonitoredIPs{}
@@ -45,33 +45,35 @@ func (l *Listener) update() {
 
 	// check update trigger condition
 	if !l.state.InSync(ips) {
-		log.Info("running IP change destination updates")
+		l.log.Infof("IP(s) changed (%s): running destination updates", ips)
 
 		tstart := time.Now()
 		var numErrors int
 		for _, u := range l.updaters {
+			l.log.Debugf("running %s", u.Name())
+
 			// update the IPs at the destination
 			err = u.Update(ips.IPv4)
 
 			// log errors
 			if err != nil {
-				log.Error(err)
+				l.log.Errorf("%s: %s", u.Name(), err)
 				numErrors++
 			}
 		}
 		if numErrors == 0 {
-			log.Infof("all destinations updated in %s", time.Now().Sub(tstart))
+			l.log.Infof("all destinations updated in %s", time.Now().Sub(tstart))
 
 			// write state only if all updates were successful
 			l.state.Set(ips)
 		} else if numErrors == len(l.updaters) {
-			log.Errorf("all destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))
+			l.log.Errorf("all destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))
 		} else {
-			log.Warnf("some destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))
+			l.log.Warnf("some destinations encountered update errors. Time elapsed: %s", time.Now().Sub(tstart))
 		}
 		return
 	}
-	log.Debug("IPs are equal. Nothing to do")
+	l.log.Debug("IPs are equal. Nothing to do")
 }
 
 // Listener listens for IP changes on an interface and updates all its configured destinations
@@ -81,11 +83,17 @@ type Listener struct {
 
 	// units that will receive an update
 	updaters []update.Updater
+
+	// logger for injection
+	log log.Logger
 }
 
 // New creates a new listener
 func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener, error) {
 	l := new(Listener)
+
+	// get the program level logger
+	l.log = logging.Get()
 
 	if cfg == nil {
 		return nil, fmt.Errorf("cannot run without listener config")
@@ -98,7 +106,7 @@ func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener,
 	// opportunistically attempt to load the state
 	_, err := l.state.Get()
 	if err != nil {
-		log.Debugf("loading state failed: %s", err)
+		l.log.Debugf("loading state failed: %s", err)
 		l.state.Reset()
 	}
 
@@ -111,13 +119,13 @@ func New(cfg *cfg.ListenConfig, state State, upds ...update.Updater) (*Listener,
 // Run starts the IP change listener
 func (l *Listener) Run() chan struct{} {
 
-	log.Debugf("running with config: %s", l.cfg)
+	l.log.Debugf("running with config: %s", l.cfg)
 
 	// setup time interval for periodic checks
 	ticker := time.NewTicker(time.Duration(l.cfg.Interval) * time.Minute)
-	defer ticker.Stop()
 
 	// check and update if necessary
+	l.log.Debug("running initial IP update check")
 	l.update()
 
 	// go into monitoring mode
@@ -127,9 +135,12 @@ func (l *Listener) Run() chan struct{} {
 			select {
 			case <-ticker.C:
 				// check and update if necessary
+				l.log.Debug("running periodic IP update check")
 				l.update()
 			case <-stop:
-				log.Info("stopped listening for IP updates")
+				l.log.Info("stopped listening for IP updates")
+
+				ticker.Stop()
 				return
 			}
 		}

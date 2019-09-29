@@ -7,6 +7,8 @@ import (
 	"os"
 
 	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/logging"
+	log "github.com/els0r/log"
 )
 
 // FileUpdate supplies methods to update the IP in a template and write it to an output file
@@ -14,21 +16,25 @@ type FileUpdate struct {
 	templatePath      string
 	outputPath        string
 	outputWriteCloser io.WriteCloser
+	log               log.Logger
 }
 
+// FOption can be used to configure optional parameters for the file updater
 type FOption func(*FileUpdate)
 
-// WithOutputWriter allows for a more generic way of writing the output
+// WithOutputWriteCloser allows for a more generic way of writing the output
 func WithOutputWriteCloser(wc io.WriteCloser) FOption {
 	return func(f *FileUpdate) {
 		f.outputWriteCloser = wc
 	}
 }
 
+// NewFileUpdate creates a file updater
 func NewFileUpdate(cfg *cfg.FileConfig, opts ...FOption) (*FileUpdate, error) {
 	f := &FileUpdate{
 		templatePath: cfg.Template,
 		outputPath:   cfg.Output,
+		log:          logging.Get(),
 	}
 
 	// apply options
@@ -43,8 +49,15 @@ func NewFileUpdate(cfg *cfg.FileConfig, opts ...FOption) (*FileUpdate, error) {
 	return f, nil
 }
 
+// Name returns a human-readable identifier for the updater
+func (f *FileUpdate) Name() string {
+	return "file updater"
+}
+
+// Update takes the IP and writes it to the specified output file using the provided
+// input template
 func (f *FileUpdate) Update(ip string) error {
-	logger.Debugf("updating file: %s", f.outputPath)
+	f.log.Debugf("updating file: %s", f.outputPath)
 
 	// parse template file
 	templ, err := template.ParseFiles(f.templatePath)
