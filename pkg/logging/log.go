@@ -1,3 +1,4 @@
+// Package logging simplifies logger access and configuration
 package logging
 
 import (
