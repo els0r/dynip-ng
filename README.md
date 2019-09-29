@@ -66,4 +66,4 @@ Please use the [issue tracker](https://github.com/els0r/dynip-ng/issues) for bug
 
 ## License
 
-See the [LICENSE](./LICENCE) file for usage conditions.
+See the [LICENSE](./LICENSE) file for usage conditions.
