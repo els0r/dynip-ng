@@ -25,11 +25,23 @@ var cfgPath string
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "dynip-ng",
-	Short: "Listens on external interface and updates its external IP at Cloudflare",
-	Long: `Listens on external interface and updates its external IP at Cloudflare
+	Short: "Listens on external interface and updates its external IP at a set of registered receivers",
+	Long: `Listens on external interface and updates its external IP at a set of registered receivers
+
+Destinations
+============
+
+Cloudflare
+----------
 
 The user is expected to have a Cloudflare account and a valid API key.
-See config section`,
+See config section
+
+File
+----
+
+Take a source template (with a placeholder for an IP) and write the rendered
+template to output`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.

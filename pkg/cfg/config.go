@@ -11,40 +11,127 @@ import (
 
 // Config holds the dyn-ip configuration
 type Config struct {
-	// Record which should be changed
-	Record string
+	// Listen configures where to listen for IP updates
+	Listen *ListenConfig
 
-	// Zone holding the record
-	Zone string
+	// StateFile stores the location of the state file
+	StateFile string `yaml:"state_file"`
 
+	// Destinations stores all places to be updated
+	Destinations *DestinationsConfig
+
+	// Logging configuration
+	Logging *LoggingConfig `yaml:"logging"`
+}
+
+// LoggingConfig can reconfigure the program logger
+type LoggingConfig struct {
+	// Where are logs written
+	Destination string `yaml:"destination"`
+
+	// Log level
+	Level string `yaml:"level"`
+}
+
+// DestinationsConfig stores all output destinations
+type DestinationsConfig struct {
+	// configures the cloudflare API
+	Cloudflare *CloudflareAPI `yaml:"cloudflare,omitempty"`
+	// configures the file update config
+	File *FileConfig `yaml:"file,omitempty"`
+}
+
+// FileConfig stores parameters for
+type FileConfig struct {
+	Template string `yaml:"template"`
+	Output   string `yaml:"output"`
+}
+
+func (f *FileConfig) validate() error {
+	if f.Template == "" {
+		return fmt.Errorf("file: no input template provided")
+	}
+	if f.Output == "" {
+		return fmt.Errorf("file: no output file provided")
+	}
+	return nil
+}
+
+func (d DestinationsConfig) validate() error {
+	var sections []validator
+
+	// check if there is at least one destination configured
+	if d.Cloudflare != nil {
+		sections = append(sections, d.Cloudflare)
+	}
+	if d.File != nil {
+		sections = append(sections, d.File)
+	}
+	if len(sections) == 0 {
+		return fmt.Errorf("no destination for IP provided. Need at least one")
+	}
+
+	// run all config subsection validators. Order matters here
+	for _, section := range sections {
+		err := section.validate()
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// ListenConfig configures the listener
+type ListenConfig struct {
 	// External interface to monitor changes on
 	Iface string
 
 	// Interval stores the time between periodic checks
 	Interval int
-
-	// StateFile stores the location of the state file
-	StateFile string `yaml:"state_file"`
-
-	// API configures the accessto cloudflare
-	API *APIConfig `yaml:"cloudflare_api"`
 }
 
-// APIConfig configures the accessto cloudflare
-type APIConfig struct {
-	// Key is the API key for Cloudflare
-	Key string
+// CloudflareAPI configures the accessto cloudflare
+type CloudflareAPI struct {
+	Access struct {
+		// Key is the API key for Cloudflare
+		Key string
 
-	// Email is the email associated with the API key
-	Email string
-}
-
-func (a *APIConfig) validate() error {
-	if a.Key == "" {
-		return fmt.Errorf("cloudflare_api: no API key provided")
+		// Email is the email associated with the API key
+		Email string
 	}
-	if a.Email == "" {
-		return fmt.Errorf("cloudflare_api: no API email provided")
+
+	// list of Zones to update
+	Zones map[string]*Zone
+}
+
+// Zone stores the DNS objects that should be updated
+type Zone struct {
+	// Record to change
+	Record string
+}
+
+func (z *Zone) validate() error {
+	return nil
+}
+
+func (c *CloudflareAPI) validate() error {
+	if c.Access.Key == "" {
+		return fmt.Errorf("cloudflare: no API key provided")
+	}
+	if c.Access.Email == "" {
+		return fmt.Errorf("cloudflare: no API email provided")
+	}
+	if len(c.Zones) == 0 {
+		return fmt.Errorf("cloudflare: no zone to update record in provided")
+	}
+	for name, zone := range c.Zones {
+		if name == "" {
+			return fmt.Errorf("cloudflare: zone with no name provided")
+		}
+		err := zone.validate()
+		if err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -52,17 +139,27 @@ func (a *APIConfig) validate() error {
 // New creates a default configuration
 func New() *Config {
 	return &Config{
-		Iface:    "eth0", // assumes that eth0 is the default interface
-		Interval: 5,      // standard check is every 5 minutes
+		Listen: &ListenConfig{
+			Interval: 5, // standard check is every 5 minutes
+		},
+		Logging: &LoggingConfig{
+			Destination: "console", // log to console by default
+			Level:       "INFO",
+		},
 	}
 }
 
 // String provides quick info about what this configuration updates
 func (c *Config) String() string {
-	return fmt.Sprintf("Updates: %s.%s; Every: %dm; Iface: %q",
-		c.Record, c.Zone,
-		c.Interval,
-		c.Iface)
+	return c.Listen.String()
+}
+
+// String provides quick info about what the listener does
+func (l *ListenConfig) String() string {
+	return fmt.Sprintf("updates every: %dm; Iface: %q",
+		l.Interval,
+		l.Iface,
+	)
 }
 
 // the validator interface is a contract to show if a concrete type is
@@ -71,21 +168,22 @@ type validator interface {
 	validate() error
 }
 
+func (l *ListenConfig) validate() error {
+	if l.Iface == "" {
+		return fmt.Errorf("listener: no interface provided on which daemon monitors changes")
+	}
+	if l.Interval <= 0 {
+		return fmt.Errorf("listener: checking period must be greater zero (minutes)")
+	}
+	return nil
+}
+
 func (c *Config) validate() error {
-	if c.Record == "" {
-		return fmt.Errorf("no record to update provided")
+	if c.Listen == nil {
+		return fmt.Errorf("no listener configuration provided")
 	}
-	if c.Zone == "" {
-		return fmt.Errorf("no zone to update record in provided")
-	}
-	if c.Iface == "" {
-		return fmt.Errorf("no interface provided on which daemon monitors changes")
-	}
-	if c.API == nil {
-		return fmt.Errorf("no cloudflare configuration provided")
-	}
-	if c.Interval <= 0 {
-		return fmt.Errorf("checking period must be greater zero (seconds)")
+	if c.Destinations == nil {
+		return fmt.Errorf("no destination configuration provided")
 	}
 	return nil
 }
@@ -95,7 +193,8 @@ func (c *Config) Validate() error {
 	// run all config subsection validators. Order matters here
 	for _, section := range []validator{
 		c,
-		c.API,
+		c.Listen,
+		c.Destinations,
 	} {
 		err := section.validate()
 		if err != nil {

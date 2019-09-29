@@ -46,19 +46,45 @@ func TestNewCloudFlare(t *testing.T) {
 
 	var tests = []struct {
 		name       string
-		key        string
-		email      string
+		cfg        *cfg.CloudflareAPI
 		shouldPass bool
 	}{
-		{"init cloudflare updater", "api_test_key_1", "test@example.com", true},
-		{"no key", "", "test@example.com", false},
-		{"no email", "", "test@example.com", false},
+		{
+			"init cloudflare updater",
+			&cfg.CloudflareAPI{
+				Access: struct {
+					Key   string
+					Email string
+				}{"api_test_key_1", "test@example.com"},
+			},
+			true,
+		},
+		{
+			"no key",
+			&cfg.CloudflareAPI{
+				Access: struct {
+					Key   string
+					Email string
+				}{"", "test@example.com"},
+			},
+			false,
+		},
+		{
+			"no email",
+			&cfg.CloudflareAPI{
+				Access: struct {
+					Key   string
+					Email string
+				}{"api_test_key_1", ""},
+			},
+			false,
+		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// create new object
-			c, err := NewCloudFlareUpdate(test.key, test.email)
+			c, err := NewCloudFlareUpdate(test.cfg)
 			if test.shouldPass {
 				if err != nil {
 					t.Fatalf("couldn't create cloudflare updater: %s", err)
@@ -85,18 +111,40 @@ func TestCloudFlareUpdate(t *testing.T) {
 	var tests = []struct {
 		name       string
 		IP         string
-		cfg        *cfg.Config
+		cfg        *cfg.CloudflareAPI
 		shouldPass bool
 	}{
-		{"record found", IP, &cfg.Config{Zone: zoneName, Record: recordName}, true},
-		{"zone not found", IP, &cfg.Config{Zone: "notAvailable", Record: recordName}, false},
-		{"record not found", IP, &cfg.Config{Zone: zoneName, Record: "notAvailable"}, false},
+		{"record found", IP, &cfg.CloudflareAPI{
+			Zones: map[string]*cfg.Zone{
+				zoneName: &cfg.Zone{Record: recordName},
+			},
+			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+		}, true},
+		{"records found", IP, &cfg.CloudflareAPI{
+			Zones: map[string]*cfg.Zone{
+				zoneName: &cfg.Zone{Record: recordName},
+			},
+			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+		}, true},
+		{"zone not found", IP, &cfg.CloudflareAPI{
+			Zones: map[string]*cfg.Zone{
+				"notAvailable": &cfg.Zone{Record: recordName},
+			},
+			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+		}, false},
+		{"record not found", IP, &cfg.CloudflareAPI{
+			Zones: map[string]*cfg.Zone{
+				zoneName: &cfg.Zone{Record: "notAvailable"},
+			},
+			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+		}, false},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// create new updater with mock API
-			c, err := NewCloudFlareUpdate("unused", "unused", WithCFAPI(&mockAPI{
+			// TODO: rewrite the mock API to be able to test updates to multiple zones
+			c, err := NewCloudFlareUpdate(test.cfg, WithCFAPI(&mockAPI{
 				zoneName: zoneName,
 				zoneID:   zoneID,
 				records: []cloudflare.DNSRecord{
@@ -113,7 +161,7 @@ func TestCloudFlareUpdate(t *testing.T) {
 			}
 
 			// update the record
-			err = c.Update(test.IP, test.cfg)
+			err = c.Update(test.IP)
 			if test.shouldPass {
 				if err != nil {
 					t.Fatalf("cloudflare update failed: %s", err)

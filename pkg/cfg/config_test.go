@@ -11,42 +11,174 @@ var tests = []struct {
 	cfg        string
 }{
 	{
-		"valid configuration",
+		"valid configuration (both destinations)",
 		true,
-		`zone: example.ch
-record: dynip
-interval: 10
+		`---
 state_file: "/root/.ip-state"
-iface: eth0
-cloudflare_api:
-    key: 123
-    email: test@example.com
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+
+        zones:
+            example.ch:
+                record: dynip
+    file:
+        template: /path/to/template
+        output: /path/to/output
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"no listen interface",
+		false,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+
+        zones:
+            example.ch:
+                record: dynip
+    file:
+        template: /path/to/template
+        output: /path/to/output
+
+listen:
+    interval: 10
+        `,
+	},
+	{
+		"valid configuration (cloudflare)",
+		true,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+
+        zones:
+            example.ch:
+                record: dynip
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"no access section (cloudflare)",
+		false,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        zones:
+            example.ch:
+                record: dynip
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"no email in access (cloudflare)",
+		false,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+				access:
+						key: 123
+        zones:
+            example.ch:
+                record: dynip
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"empty zone (cloudflare)",
+		false,
+		`---
+state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+				access:
+						key: 123
+        zones:
+            example.ch:
+                record: ""
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"no destinations",
+		false,
+		`---
+state_file: "/root/.ip-state"
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
+		"valid configuration (file)",
+		true,
+		`state_file: "/root/.ip-state"
+destinations:
+    file:
+        template: /path/to/template
+        output: /path/to/output
+listen:
+    interval: 10
+    iface: eth0
         `,
 	},
 	{
 		"wrong interval value",
 		false,
-		`zone: example.ch
-record: dynip
-interval: -1
-iface: eth0
-cloudflare_api:
-    key: 123
-    email: test@example.com
+		`state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        zone: example.ch
+        record: dynip
+listen:
+    interval: -1
+    iface: eth0
         `,
 	},
 	{
 		"zone missing",
 		false,
-		`record: dynip
-iface: eth0
-        `,
-	},
-	{
-		"record missing",
-		false,
-		`zone: example.ch
-iface: eth0
+		`state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        record: dynip
+listen:
+    interval: -1
+    iface: eth0
         `,
 	},
 	{
@@ -59,11 +191,16 @@ iface: eth0
 	{
 		"invalid API configuration - key missing",
 		false,
-		`zone: example.ch
-record: dynip
-iface: eth0
-cloudflare_api:
-    email: test@example.com
+		`state_file: "/root/.ip-state"
+destinations:
+    cloudflare:
+        access:
+            key: 123
+            email: test@example.com
+        record: dynip
+listen:
+    interval: -1
+    iface: eth0
         `,
 	},
 }
@@ -81,6 +218,7 @@ func TestValidate(t *testing.T) {
 			cfg, err := Parse(r)
 			if test.shouldPass {
 				if err != nil {
+					t.Logf("config: %s", cfg)
 					t.Fatalf("[%d] couldn't parse config: %s", i, err)
 				}
 				t.Log(cfg)

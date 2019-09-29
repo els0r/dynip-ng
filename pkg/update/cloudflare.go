@@ -2,18 +2,23 @@ package update
 
 import (
 	"fmt"
-	"log"
 
 	cloudflare "github.com/cloudflare/cloudflare-go"
 	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/logging"
+
+	log "github.com/els0r/log"
 )
 
 // CloudFlareUpdate communicates with the cloudflare API to change records
 type CloudFlareUpdate struct {
 	api CloudflareAPI
+	cfg *cfg.CloudflareAPI
+	log log.Logger
 }
 
-// api allows us to mock the cloudflare api for testing
+// CloudflareAPI allows us to decouple the third-party CloudFlare API implementation.
+// This is useful for mocking the cloudflare api for testing.
 type CloudflareAPI interface {
 	ZoneIDByName(string) (string, error)
 	DNSRecords(string, cloudflare.DNSRecord) ([]cloudflare.DNSRecord, error)
@@ -30,13 +35,19 @@ func WithCFAPI(api CloudflareAPI) CFOption {
 	}
 }
 
-// NewCloudFlareUpdate return a new cloudflare updater
-func NewCloudFlareUpdate(key, email string, opts ...CFOption) (*CloudFlareUpdate, error) {
+// NewCloudFlareUpdate returns a new cloudflare updater
+func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareUpdate, error) {
 	c := new(CloudFlareUpdate)
+
+	// store zone and record update config
+	c.cfg = cfg
+
+	// initialize the logger
+	c.log = logging.Get()
 
 	// Construct a new API object
 	var err error
-	c.api, err = cloudflare.New(key, email)
+	c.api, err = cloudflare.New(cfg.Access.Key, cfg.Access.Email)
 	if err != nil {
 		return nil, err
 	}
@@ -49,45 +60,64 @@ func NewCloudFlareUpdate(key, email string, opts ...CFOption) (*CloudFlareUpdate
 	return c, nil
 }
 
+// Name returns a human-readable identifier for the updater
+func (c *CloudFlareUpdate) Name() string {
+	return "cloudflare updater"
+}
+
 // Update changes the record from the config in Cloudflare to `ip`
-func (c *CloudFlareUpdate) Update(IP string, cfg *cfg.Config) error {
+func (c *CloudFlareUpdate) Update(IP string) error {
 
-	// Fetch the zone ID
-	zoneID, err := c.api.ZoneIDByName(cfg.Zone)
-	if err != nil {
-		return err
-	}
+	// update counters
+	recordsUpdated := 0
+	currentUpdateCount := 0
 
-	// Fetch all records for a zone
-	recs, err := c.api.DNSRecords(zoneID, cloudflare.DNSRecord{})
-	if err != nil {
-		return err
-	}
+	for name, zoneCfg := range c.cfg.Zones {
+		c.log.Debugf("updating Cloudflare zone: %s", name)
 
-	recordToUpdate := cfg.Zone
-	if cfg.Record != "" {
-		recordToUpdate = cfg.Record + "." + cfg.Zone
-	}
+		// Fetch the zone ID
+		zoneID, err := c.api.ZoneIDByName(name)
+		if err != nil {
+			return err
+		}
 
-	for _, r := range recs {
-		// only take the A record
-		if r.Type == "A" {
+		// Fetch all records for a zone
+		recs, err := c.api.DNSRecords(zoneID, cloudflare.DNSRecord{})
+		if err != nil {
+			return err
+		}
 
-			// update if it is the IP address record
-			if r.Name == recordToUpdate {
+		recordToUpdate := name
+		if zoneCfg.Record != "" {
+			recordToUpdate = zoneCfg.Record + "." + name
+		}
 
-				// set to new IP address
-				r.Content = IP
+		for _, r := range recs {
+			// only take the A record
+			if r.Type == "A" {
 
-				err = c.api.UpdateDNSRecord(zoneID, r.ID, r)
-				if err != nil {
-					return err
-				} else {
-					log.Printf("Updated A record '%s' with IP address '%s'", recordToUpdate, IP)
-					return nil
+				// update if it is the IP address record
+				if r.Name == recordToUpdate {
+
+					// set to new IP address
+					r.Content = IP
+
+					err = c.api.UpdateDNSRecord(zoneID, r.ID, r)
+					if err != nil {
+						return err
+					}
+					c.log.Debugf("updated A record '%s' with IP address '%s'", recordToUpdate, IP)
+					recordsUpdated++
 				}
 			}
 		}
+
+		// check if the records update was completed
+		if recordsUpdated == currentUpdateCount {
+			return fmt.Errorf("record %q was not found", recordToUpdate)
+		}
+		currentUpdateCount = recordsUpdated
 	}
-	return fmt.Errorf("record was not found")
+	c.log.Debugf("updated %d records", recordsUpdated)
+	return nil
 }

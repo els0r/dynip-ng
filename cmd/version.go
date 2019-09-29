@@ -16,31 +16,25 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/els0r/dynip-ng/pkg/cfg"
+	"github.com/els0r/dynip-ng/pkg/version"
 	"github.com/spf13/cobra"
 )
 
-// configCmd represents the config command
-var configCmd = &cobra.Command{
-	Use:   "config",
-	Short: "Test the configuration file for errors",
-	Long: `Test the configuration file for errors.
-
-This will check if the YAML syntax is okay and whether
-all parameters have been provided`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Printf("Validating configuration at: %s\n", cfgPath)
-
-		config, err := cfg.ParseFile(cfgPath)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("Config:\n\t%s\n", config)
-		return nil
+// versionCmd represents the version command
+var versionCmd = &cobra.Command{
+	Use:   "version",
+	Short: "Print version number",
+	Long:  "Print version number",
+	Run: func(cmd *cobra.Command, args []string) {
+		fmt.Printf("%s\n%s", os.Args[0], version.Version())
+		os.Exit(0)
 	},
 }
 
 func init() {
-	rootCmd.AddCommand(configCmd)
+	rootCmd.AddCommand(versionCmd)
+
+	versionCmd.Flags().BoolP("version", "v", false, "Print version and exit")
 }

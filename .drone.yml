@@ -69,6 +69,33 @@ steps:
           event:
               - push
 
+    - name: lint
+      image: golang:1.12.5-stretch
+      pull: always
+      commands:
+          - go vet -composites=false ./...
+      when:
+          branch:
+              - master
+              - develop
+              - feature/*
+          event:
+              - push
+
+    - name: coverage
+      image: golang:1.12.5-stretch
+      pull: always
+      commands:
+          - bash test_coverage.sh
+          - bash <(curl -s https://codecov.io/bash)
+      when:
+          branch:
+              - master
+              - develop
+              - feature/*
+          event:
+              - push
+
     - name: merge
       image: golang:1.12.5-stretch
       pull: always
