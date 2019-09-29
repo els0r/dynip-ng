@@ -120,6 +120,12 @@ func TestCloudFlareUpdate(t *testing.T) {
 			},
 			Access: struct{ Key, Email string }{"key", "e@mail.com"},
 		}, true},
+		{"records found", IP, &cfg.CloudflareAPI{
+			Zones: map[string]*cfg.Zone{
+				zoneName: &cfg.Zone{Record: recordName},
+			},
+			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+		}, true},
 		{"zone not found", IP, &cfg.CloudflareAPI{
 			Zones: map[string]*cfg.Zone{
 				"notAvailable": &cfg.Zone{Record: recordName},
@@ -137,6 +143,7 @@ func TestCloudFlareUpdate(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			// create new updater with mock API
+			// TODO: rewrite the mock API to be able to test updates to multiple zones
 			c, err := NewCloudFlareUpdate(test.cfg, WithCFAPI(&mockAPI{
 				zoneName: zoneName,
 				zoneID:   zoneID,

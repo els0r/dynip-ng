@@ -67,7 +67,7 @@ func (f *FileUpdate) Update(ip string) error {
 
 	// check if the output is a file
 	if f.outputPath != "" {
-		fd, err := os.OpenFile(f.outputPath, os.O_RDWR|os.O_CREATE, 0666)
+		fd, err := os.OpenFile(f.outputPath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0666)
 		if err != nil {
 			return err
 		}

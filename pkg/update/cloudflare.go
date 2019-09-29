@@ -68,6 +68,10 @@ func (c *CloudFlareUpdate) Name() string {
 // Update changes the record from the config in Cloudflare to `ip`
 func (c *CloudFlareUpdate) Update(IP string) error {
 
+	// update counters
+	recordsUpdated := 0
+	currentUpdateCount := 0
+
 	for name, zoneCfg := range c.cfg.Zones {
 		c.log.Debugf("updating Cloudflare zone: %s", name)
 
@@ -103,11 +107,17 @@ func (c *CloudFlareUpdate) Update(IP string) error {
 						return err
 					}
 					c.log.Debugf("updated A record '%s' with IP address '%s'", recordToUpdate, IP)
-					return nil
+					recordsUpdated++
 				}
 			}
 		}
-		return fmt.Errorf("record %q was not found", recordToUpdate)
+
+		// check if the records update was completed
+		if recordsUpdated == currentUpdateCount {
+			return fmt.Errorf("record %q was not found", recordToUpdate)
+		}
+		currentUpdateCount = recordsUpdated
 	}
+	c.log.Debugf("updated %d records", recordsUpdated)
 	return nil
 }
