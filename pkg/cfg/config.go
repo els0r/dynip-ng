@@ -111,6 +111,9 @@ type ListenConfig struct {
 	// External interface to monitor changes on
 	Iface string
 
+	// IsLAN is true if the interface is assigned a private IP address
+	IsLAN bool `yaml:"isLan"`
+
 	// Interval stores the time between periodic checks
 	Interval int
 }

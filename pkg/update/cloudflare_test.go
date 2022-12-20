@@ -1,6 +1,7 @@
 package update
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -22,14 +23,14 @@ func (m *mockAPI) ZoneIDByName(name string) (string, error) {
 	return m.zoneID, nil
 }
 
-func (m *mockAPI) DNSRecords(zoneID string, r cloudflare.DNSRecord) ([]cloudflare.DNSRecord, error) {
+func (m *mockAPI) DNSRecords(_ context.Context, zoneID string, r cloudflare.DNSRecord) ([]cloudflare.DNSRecord, error) {
 	if zoneID != m.zoneID {
 		return nil, fmt.Errorf("no records found for zone ID: %s", zoneID)
 	}
 	return m.records, nil
 }
 
-func (m *mockAPI) UpdateDNSRecord(zoneID string, recordID string, r cloudflare.DNSRecord) error {
+func (m *mockAPI) UpdateDNSRecord(_ context.Context, zoneID string, recordID string, r cloudflare.DNSRecord) error {
 	if zoneID != m.zoneID {
 		return fmt.Errorf("zone ID %s not found", zoneID)
 	}
@@ -161,7 +162,7 @@ func TestCloudFlareUpdate(t *testing.T) {
 			}
 
 			// update the record
-			err = c.Update(test.IP)
+			err = c.Update(context.Background(), test.IP)
 			if test.shouldPass {
 				if err != nil {
 					t.Fatalf("cloudflare update failed: %s", err)

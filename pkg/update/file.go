@@ -1,6 +1,7 @@
 package update
 
 import (
+	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -56,7 +57,7 @@ func (f *FileUpdate) Name() string {
 
 // Update takes the IP and writes it to the specified output file using the provided
 // input template
-func (f *FileUpdate) Update(ip string) error {
+func (f *FileUpdate) Update(_ context.Context, ip string) error {
 	f.log.Debugf("updating file: %s", f.outputPath)
 
 	// parse template file

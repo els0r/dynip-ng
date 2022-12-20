@@ -2,6 +2,7 @@
 package listener
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"time"
@@ -11,13 +12,19 @@ import (
 	"github.com/els0r/dynip-ng/pkg/logging"
 	"github.com/els0r/dynip-ng/pkg/update"
 	log "github.com/els0r/log"
+	"github.com/miekg/dns"
 )
+
+const defaultUpdateTimeout = 30 * time.Second
 
 func (l *Listener) update() {
 	var (
 		err error
 		ip  net.IP
 	)
+
+	ctx, cancel := context.WithTimeout(context.Background(), defaultUpdateTimeout)
+	defer cancel()
 
 	// reset state in case the error is non-nil upon function return
 	defer func(err error) {
@@ -32,10 +39,20 @@ func (l *Listener) update() {
 	}(err)
 
 	// get current ip addresses
-	ip, err = getLocalAddress(l.cfg.Iface)
-	if err != nil {
-		l.log.Errorf("failed to get IP address on %q: %s", l.cfg.Iface, err)
-		return
+	if !l.cfg.IsLAN {
+		ip, err = getLocalAddress(l.cfg.Iface)
+		if err != nil {
+			l.log.Errorf("failed to get IP address on %q: %s", l.cfg.Iface, err)
+			return
+		}
+	} else {
+		l.log.Infof("getting external IP address on %q (lan=%v)", l.cfg.Iface, l.cfg.IsLAN)
+		// get the IP address via a call to dyn
+		ip, err = getExternalIPAddress(ctx)
+		if err != nil {
+			l.log.Errorf("failed to get external IP address on %q: %s", l.cfg.Iface, err)
+			return
+		}
 	}
 	l.log.Debugf("current interface IP is %q", ip)
 
@@ -55,10 +72,11 @@ func (l *Listener) update() {
 		tstart := time.Now()
 		var numErrors int
 		for _, u := range l.updaters {
+
 			l.log.Debugf("running %s", u.Name())
 
 			// update the IPs at the destination
-			err = u.Update(ips.IPv4)
+			err = u.Update(ctx, ips.IPv4)
 
 			// log errors
 			if err != nil {
@@ -181,4 +199,36 @@ func getLocalAddress(iface string) (net.IP, error) {
 		}
 	}
 	return nil, fmt.Errorf("no IP address found for interface %q", iface)
+}
+
+const (
+	openDNSResolver = "resolver1.opendns.com."
+	extIPHostname   = "myip.opendns.com."
+)
+
+// getExternalIPAddress looks up the public IP address behind which the dynip service runs
+func getExternalIPAddress(ctx context.Context) (net.IP, error) {
+	// get IP of open DNS resolver
+	resolverIPs, err := net.LookupIP(openDNSResolver)
+	if err != nil {
+		return nil, fmt.Errorf("failed to resolve IP of OpenDNS resolver: %w", err)
+	}
+	if len(resolverIPs) == 0 {
+		return nil, fmt.Errorf("no OpenDNS resolver IP returned", err)
+	}
+	resolverIP := resolverIPs[0]
+
+	msg := new(dns.Msg)
+	msg.SetQuestion(extIPHostname, dns.TypeA)
+	c := new(dns.Client)
+
+	reply, _, err := c.ExchangeContext(ctx, msg, resolverIP.String()+":53")
+	if err != nil {
+		return nil, err
+	}
+	if len(reply.Answer) == 0 {
+		return nil, fmt.Errorf("empty resource record returned")
+	}
+	r := reply.Answer[0]
+	return r.(*dns.A).A, nil
 }

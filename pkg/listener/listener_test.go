@@ -1,6 +1,7 @@
 package listener
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -11,8 +12,8 @@ import (
 
 type mockUpdater struct{}
 
-func (m *mockUpdater) Update(ip string) error { return nil }
-func (m *mockUpdater) Name() string           { return "mock updater" }
+func (m *mockUpdater) Update(_ context.Context, ip string) error { return nil }
+func (m *mockUpdater) Name() string                              { return "mock updater" }
 
 func TestListener(t *testing.T) {
 	var tests = []struct {
