@@ -17,8 +17,7 @@ export COMMIT_SHA=$( git rev-parse HEAD )
 go generate
 cd ../../
 
-go install
-cp $GOBIN/dynip-ng ${BASE}/opt/dynip/bin
+go build -o ${BASE}/opt/dynip/bin
 
 echo "*** writing system files ***"
 cp addon/dynip.service ${BASE}/etc/systemd/system/dynip.service
