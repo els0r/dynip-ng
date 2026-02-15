@@ -214,7 +214,7 @@ func getExternalIPAddress(ctx context.Context) (net.IP, error) {
 		return nil, fmt.Errorf("failed to resolve IP of OpenDNS resolver: %w", err)
 	}
 	if len(resolverIPs) == 0 {
-		return nil, fmt.Errorf("no OpenDNS resolver IP returned", err)
+		return nil, fmt.Errorf("no OpenDNS resolver IP returned")
 	}
 	resolverIP := resolverIPs[0]
 

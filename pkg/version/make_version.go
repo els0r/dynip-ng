@@ -1,4 +1,4 @@
-// +build ignore
+//go:build ignore
 
 // The make_version program is run by go generate to compile a version stamp
 // to be compiled into the binary
@@ -8,7 +8,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"time"
 )
@@ -22,7 +21,7 @@ func main() {
 
 	output := fmt.Sprintf(outputFormat, time.Now().In(time.UTC).Format(time.UnixDate), version)
 
-	err := ioutil.WriteFile("git_version.go", []byte(output), 0664)
+	err := os.WriteFile("git_version.go", []byte(output), 0664)
 	if err != nil {
 		panic(err)
 	}

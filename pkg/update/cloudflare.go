@@ -22,8 +22,8 @@ type CloudFlareUpdate struct {
 // This is useful for mocking the cloudflare api for testing.
 type CloudflareAPI interface {
 	ZoneIDByName(string) (string, error)
-	DNSRecords(context.Context, string, cloudflare.DNSRecord) ([]cloudflare.DNSRecord, error)
-	UpdateDNSRecord(context.Context, string, string, cloudflare.DNSRecord) error
+	ListDNSRecords(context.Context, *cloudflare.ResourceContainer, cloudflare.ListDNSRecordsParams) ([]cloudflare.DNSRecord, *cloudflare.ResultInfo, error)
+	UpdateDNSRecord(context.Context, *cloudflare.ResourceContainer, cloudflare.UpdateDNSRecordParams) (cloudflare.DNSRecord, error)
 }
 
 // CFOption allows to modify the cloudflare updater
@@ -83,7 +83,7 @@ func (c *CloudFlareUpdate) Update(ctx context.Context, IP string) error {
 		}
 
 		// Fetch all records for a zone
-		recs, err := c.api.DNSRecords(ctx, zoneID, cloudflare.DNSRecord{})
+		recs, _, err := c.api.ListDNSRecords(ctx, cloudflare.ZoneIdentifier(zoneID), cloudflare.ListDNSRecordsParams{})
 		if err != nil {
 			return err
 		}
@@ -101,9 +101,16 @@ func (c *CloudFlareUpdate) Update(ctx context.Context, IP string) error {
 				if r.Name == recordToUpdate {
 
 					// set to new IP address
-					r.Content = IP
+					params := cloudflare.UpdateDNSRecordParams{
+						ID:      r.ID,
+						Type:    "A",
+						Name:    r.Name,
+						Content: IP,
+						TTL:     r.TTL,
+						Proxied: r.Proxied,
+					}
 
-					err = c.api.UpdateDNSRecord(ctx, zoneID, r.ID, r)
+					_, err = c.api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), params)
 					if err != nil {
 						return err
 					}

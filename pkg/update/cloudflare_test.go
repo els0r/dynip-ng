@@ -23,24 +23,24 @@ func (m *mockAPI) ZoneIDByName(name string) (string, error) {
 	return m.zoneID, nil
 }
 
-func (m *mockAPI) DNSRecords(_ context.Context, zoneID string, r cloudflare.DNSRecord) ([]cloudflare.DNSRecord, error) {
-	if zoneID != m.zoneID {
-		return nil, fmt.Errorf("no records found for zone ID: %s", zoneID)
+func (m *mockAPI) ListDNSRecords(_ context.Context, rc *cloudflare.ResourceContainer, params cloudflare.ListDNSRecordsParams) ([]cloudflare.DNSRecord, *cloudflare.ResultInfo, error) {
+	if rc.Identifier != m.zoneID {
+		return nil, nil, fmt.Errorf("no records found for zone ID: %s", rc.Identifier)
 	}
-	return m.records, nil
+	return m.records, &cloudflare.ResultInfo{}, nil
 }
 
-func (m *mockAPI) UpdateDNSRecord(_ context.Context, zoneID string, recordID string, r cloudflare.DNSRecord) error {
-	if zoneID != m.zoneID {
-		return fmt.Errorf("zone ID %s not found", zoneID)
+func (m *mockAPI) UpdateDNSRecord(_ context.Context, rc *cloudflare.ResourceContainer, params cloudflare.UpdateDNSRecordParams) (cloudflare.DNSRecord, error) {
+	if rc.Identifier != m.zoneID {
+		return cloudflare.DNSRecord{}, fmt.Errorf("zone ID %s not found", rc.Identifier)
 	}
 	for i, record := range m.records {
-		if record.ID == recordID {
-			m.records[i] = r
-			return nil
+		if record.ID == params.ID {
+			m.records[i].Content = params.Content
+			return m.records[i], nil
 		}
 	}
-	return fmt.Errorf("record %q could not be found in zone", recordID)
+	return cloudflare.DNSRecord{}, fmt.Errorf("record %q could not be found in zone", params.ID)
 }
 
 func TestNewCloudFlare(t *testing.T) {
