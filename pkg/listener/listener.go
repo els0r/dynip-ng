@@ -213,16 +213,24 @@ func getExternalIPAddress(ctx context.Context) (net.IP, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to resolve IP of OpenDNS resolver: %w", err)
 	}
-	if len(resolverIPs) == 0 {
-		return nil, fmt.Errorf("no OpenDNS resolver IP returned")
+
+	// prefer an IPv4 resolver address since we're querying for an A record
+	var resolverIP net.IP
+	for _, ip := range resolverIPs {
+		if ip.To4() != nil {
+			resolverIP = ip
+			break
+		}
 	}
-	resolverIP := resolverIPs[0]
+	if resolverIP == nil {
+		return nil, fmt.Errorf("no IPv4 address found for OpenDNS resolver")
+	}
 
 	msg := new(dns.Msg)
 	msg.SetQuestion(extIPHostname, dns.TypeA)
 	c := new(dns.Client)
 
-	reply, _, err := c.ExchangeContext(ctx, msg, resolverIP.String()+":53")
+	reply, _, err := c.ExchangeContext(ctx, msg, net.JoinHostPort(resolverIP.String(), "53"))
 	if err != nil {
 		return nil, err
 	}
