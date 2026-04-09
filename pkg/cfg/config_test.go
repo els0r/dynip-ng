@@ -127,6 +127,24 @@ listen:
         `,
 	},
 	{
+		"valid configuration (cloudflare with token)",
+		true,
+		`---` + validStateConfig + `
+destinations:
+    cloudflare:
+        access:
+            token: secret_token
+
+        zones:
+            example.ch:
+                record: dynip
+
+listen:
+    interval: 10
+    iface: eth0
+        `,
+	},
+	{
 		"no access section (cloudflare)",
 		false,
 		`---` + validStateConfig + `

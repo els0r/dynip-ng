@@ -48,7 +48,11 @@ func NewCloudFlareUpdate(cfg *cfg.CloudflareAPI, opts ...CFOption) (*CloudFlareU
 
 	// Construct a new API object
 	var err error
-	c.api, err = cloudflare.New(cfg.Access.Key, cfg.Access.Email)
+	if cfg.Access.Token != "" {
+		c.api, err = cloudflare.NewWithAPIToken(cfg.Access.Token)
+	} else {
+		c.api, err = cloudflare.New(cfg.Access.Key, cfg.Access.Email)
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -100,6 +104,11 @@ func (c *CloudFlareUpdate) Update(ctx context.Context, IP string) error {
 				// update if it is the IP address record
 				if r.Name == recordToUpdate {
 
+					tags := r.Tags
+					if tags == nil {
+						tags = []string{}
+					}
+
 					// set to new IP address
 					params := cloudflare.UpdateDNSRecordParams{
 						ID:      r.ID,
@@ -108,6 +117,7 @@ func (c *CloudFlareUpdate) Update(ctx context.Context, IP string) error {
 						Content: IP,
 						TTL:     r.TTL,
 						Proxied: r.Proxied,
+						Tags:    tags,
 					}
 
 					_, err = c.api.UpdateDNSRecord(ctx, cloudflare.ZoneIdentifier(zoneID), params)

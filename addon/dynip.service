@@ -4,7 +4,7 @@ Description=Dynamic IP Updater
 After=network.target syslog.target
 
 [Service]
-ExecStart=/opt/dynip/bin/dynip-ng run -c /opt/dynip/etc/dynip-ng.yml
+ExecStart=/opt/dynip/bin/dynip-ng run -c /opt/dynip/etc/dynip-ng.yaml
 StandardOutput=syslog
 Restart=on-failure
 

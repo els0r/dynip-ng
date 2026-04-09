@@ -14,8 +14,9 @@ destinations:
         # this requires you to create an API key on
         # cloudflare for your account
         access:
-            key: a0a0d7540b7cf3e9e78adfe611d816b9
-            email: info@example.com
+            # create a token with low privileges to update
+            # DNS records
+            token: a0a0d7540b7cf3e9e78adfe611d816b9
 
         zones:
             # update your cloudflare zones

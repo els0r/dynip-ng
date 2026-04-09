@@ -54,9 +54,21 @@ func TestNewCloudFlare(t *testing.T) {
 			"init cloudflare updater",
 			&cfg.CloudflareAPI{
 				Access: struct {
+					Token string
 					Key   string
 					Email string
-				}{"api_test_key_1", "test@example.com"},
+				}{"", "api_test_key_1", "test@example.com"},
+			},
+			true,
+		},
+		{
+			"init cloudflare updater with token",
+			&cfg.CloudflareAPI{
+				Access: struct {
+					Token string
+					Key   string
+					Email string
+				}{"api_test_token_1", "", ""},
 			},
 			true,
 		},
@@ -64,9 +76,10 @@ func TestNewCloudFlare(t *testing.T) {
 			"no key",
 			&cfg.CloudflareAPI{
 				Access: struct {
+					Token string
 					Key   string
 					Email string
-				}{"", "test@example.com"},
+				}{"", "", "test@example.com"},
 			},
 			false,
 		},
@@ -74,9 +87,10 @@ func TestNewCloudFlare(t *testing.T) {
 			"no email",
 			&cfg.CloudflareAPI{
 				Access: struct {
+					Token string
 					Key   string
 					Email string
-				}{"api_test_key_1", ""},
+				}{"", "api_test_key_1", ""},
 			},
 			false,
 		},
@@ -119,25 +133,25 @@ func TestCloudFlareUpdate(t *testing.T) {
 			Zones: map[string]*cfg.Zone{
 				zoneName: &cfg.Zone{Record: recordName},
 			},
-			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+			Access: struct{ Token, Key, Email string }{"", "key", "e@mail.com"},
 		}, true},
 		{"records found", IP, &cfg.CloudflareAPI{
 			Zones: map[string]*cfg.Zone{
 				zoneName: &cfg.Zone{Record: recordName},
 			},
-			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+			Access: struct{ Token, Key, Email string }{"", "key", "e@mail.com"},
 		}, true},
 		{"zone not found", IP, &cfg.CloudflareAPI{
 			Zones: map[string]*cfg.Zone{
 				"notAvailable": &cfg.Zone{Record: recordName},
 			},
-			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+			Access: struct{ Token, Key, Email string }{"", "key", "e@mail.com"},
 		}, false},
 		{"record not found", IP, &cfg.CloudflareAPI{
 			Zones: map[string]*cfg.Zone{
 				zoneName: &cfg.Zone{Record: "notAvailable"},
 			},
-			Access: struct{ Key, Email string }{"key", "e@mail.com"},
+			Access: struct{ Token, Key, Email string }{"", "key", "e@mail.com"},
 		}, false},
 	}
 

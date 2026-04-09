@@ -121,6 +121,9 @@ type ListenConfig struct {
 // CloudflareAPI configures the accessto cloudflare
 type CloudflareAPI struct {
 	Access struct {
+		// Token is the API token for Cloudflare
+		Token string
+
 		// Key is the API key for Cloudflare
 		Key string
 
@@ -143,11 +146,13 @@ func (z *Zone) validate() error {
 }
 
 func (c *CloudflareAPI) validate() error {
-	if c.Access.Key == "" {
-		return fmt.Errorf("cloudflare: no API key provided")
-	}
-	if c.Access.Email == "" {
-		return fmt.Errorf("cloudflare: no API email provided")
+	if c.Access.Token == "" {
+		if c.Access.Key == "" {
+			return fmt.Errorf("cloudflare: no API key or token provided")
+		}
+		if c.Access.Email == "" {
+			return fmt.Errorf("cloudflare: no API email provided")
+		}
 	}
 	if len(c.Zones) == 0 {
 		return fmt.Errorf("cloudflare: no zone to update record in provided")
