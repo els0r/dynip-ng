@@ -8,7 +8,19 @@ ExecStart=/opt/dynip/bin/dynip-ng run -c /opt/dynip/etc/dynip-ng.yaml
 StandardOutput=syslog
 Restart=on-failure
 
+# Minimum privileges needed to run `wg set ... endpoint ...` on a WireGuard
+# interface. Runs as an unprivileged user; CAP_NET_ADMIN is granted only to the
+# daemon process (and not inherited by children).
+User=dynip
+Group=dynip
+AmbientCapabilities=CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_ADMIN
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+ReadWritePaths=/var/run
+
 [Install]
 WantedBy=multi-user.target
 Alias=dnyip.service
-
