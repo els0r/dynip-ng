@@ -64,6 +64,44 @@ type DestinationsConfig struct {
 	Cloudflare *CloudflareAPI `yaml:"cloudflare,omitempty"`
 	// configures the file update config
 	File *FileConfig `yaml:"file,omitempty"`
+	// configures WireGuard peer endpoint re-resolution
+	WireGuard *WireGuardConfig `yaml:"wireguard,omitempty"`
+}
+
+// WireGuardConfig configures which WireGuard peers should have their endpoint
+// re-resolved when a new IP is observed. The kernel caches the endpoint IP
+// per-peer, so `wg set <iface> peer <pubkey> endpoint <ip>:<port>` must be
+// invoked to point the tunnel at the fresh address.
+type WireGuardConfig struct {
+	Peers []WireGuardPeer `yaml:"peers"`
+}
+
+// WireGuardPeer identifies a single tunnel peer whose endpoint must be refreshed.
+type WireGuardPeer struct {
+	// Interface is the wg interface name (e.g. wg0).
+	Interface string `yaml:"interface"`
+	// PublicKey is the base64 peer public key as shown by `wg show`.
+	PublicKey string `yaml:"publicKey"`
+	// Port is the UDP listen port of the remote endpoint.
+	Port int `yaml:"port"`
+}
+
+func (w *WireGuardConfig) validate() error {
+	if len(w.Peers) == 0 {
+		return fmt.Errorf("wireguard: no peers provided")
+	}
+	for i, p := range w.Peers {
+		if p.Interface == "" {
+			return fmt.Errorf("wireguard: peer #%d: interface required", i)
+		}
+		if p.PublicKey == "" {
+			return fmt.Errorf("wireguard: peer #%d: publicKey required", i)
+		}
+		if p.Port <= 0 || p.Port > 65535 {
+			return fmt.Errorf("wireguard: peer #%d: port must be 1-65535", i)
+		}
+	}
+	return nil
 }
 
 // FileConfig stores parameters for
@@ -91,6 +129,9 @@ func (d DestinationsConfig) validate() error {
 	}
 	if d.File != nil {
 		sections = append(sections, d.File)
+	}
+	if d.WireGuard != nil {
+		sections = append(sections, d.WireGuard)
 	}
 	if len(sections) == 0 {
 		return fmt.Errorf("no destination for IP provided. Need at least one")

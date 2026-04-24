@@ -37,6 +37,14 @@ destinations:
         template: /opt/caddy/etc/sites-enabled.gotmpl
         output: /opt/caddy/etc/sites-enabled
 
+    # re-resolve the endpoint of one or more WireGuard peers so
+    # the kernel stops sending UDP to the previously-cached IP
+    wireguard:
+        peers:
+            - interface: wg0
+              publicKey: "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx="
+              port: 51820
+
 # configure logging
 # for supported configurations, check
 # https://github.com/els0r/log

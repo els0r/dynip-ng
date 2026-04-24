@@ -59,6 +59,14 @@ attributes. For example the A record on Cloudflare.`,
 			updaters = append(updaters, fu)
 			logging.Get().Debug("Initialized file updates")
 		}
+		if dests.WireGuard != nil {
+			wu, err := update.NewWireGuardUpdate(dests.WireGuard)
+			if err != nil {
+				return err
+			}
+			updaters = append(updaters, wu)
+			logging.Get().Debug("Initialized WireGuard endpoint updates")
+		}
 
 		// prepare the state
 		state, err := state.New(config.State)
